@@ -16,8 +16,8 @@ final class NeedsInputDetectorTests: XCTestCase {
             id: "43:0:/dev/ttys003",
             agent: .codex,
             state: .running,
-            lastFingerprint: "older",
-            lastChangeAt: Date(timeIntervalSince1970: 10),
+            lastFingerprint: "Streaming tokens...\nThinking...",
+            lastChangeAt: Date(timeIntervalSince1970: 8),
             hasNotifiedForCurrentWait: false
         )
 
@@ -30,5 +30,6 @@ final class NeedsInputDetectorTests: XCTestCase {
 
         XCTAssertEqual(decision.state, .running)
         XCTAssertFalse(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, "Streaming tokens...\nThinking...")
     }
 }
