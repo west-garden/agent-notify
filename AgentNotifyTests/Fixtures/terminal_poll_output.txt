@@ -1,0 +1,1 @@
+43	1	/dev/ttys000	login,-zsh,claude	false	Claude is waiting\n❯
