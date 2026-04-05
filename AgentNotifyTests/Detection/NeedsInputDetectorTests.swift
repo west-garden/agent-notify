@@ -65,6 +65,7 @@ final class NeedsInputDetectorTests: XCTestCase {
 
     func test_streamingClaudeOutputStaysRunning() throws {
         let streaming = try fixture(named: "claude_streaming")
+        let normalized = TextNormalizer().normalize(streaming)
         let snapshot = TerminalTabSnapshot(
             windowID: 46,
             tabIndex: 0,
@@ -78,7 +79,7 @@ final class NeedsInputDetectorTests: XCTestCase {
             id: "46:0:/dev/ttys005",
             agent: .claude,
             state: .running,
-            lastFingerprint: "same-fingerprint",
+            lastFingerprint: normalized,
             lastChangeAt: Date(timeIntervalSince1970: 10),
             hasNotifiedForCurrentWait: false
         )
@@ -91,5 +92,6 @@ final class NeedsInputDetectorTests: XCTestCase {
 
         XCTAssertEqual(decision.state, .running)
         XCTAssertFalse(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, normalized)
     }
 }
