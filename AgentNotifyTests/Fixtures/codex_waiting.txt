@@ -1,6 +1,3 @@
-Now let me design the plan.
+› Run /review on my current changes
 
-Chat about this
-Skip interview and plan immediately
-
-Enter to select · ↑/↓ to navigate
+gpt-5.4 xhigh · 27% left · ~/code/west-garden/agent-notify · Main [default]

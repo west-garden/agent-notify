@@ -27,4 +27,13 @@ final class CodexMatcherTests: XCTestCase {
 
         XCTAssertTrue(matcher.matchesActiveWork("Thinking..."))
     }
+
+    func test_legacySelectionPromptStillMatchesInputReady() {
+        let matcher = CodexMatcher()
+
+        XCTAssertTrue(matcher.matchesInputReady("""
+        Chat about this
+        Enter to select · ↑/↓ to navigate
+        """))
+    }
 }

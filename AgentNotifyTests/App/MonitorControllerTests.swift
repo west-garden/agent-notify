@@ -37,7 +37,11 @@ final class MonitorControllerTests: XCTestCase {
                     tty: "/dev/ttys004",
                     processes: ["login", "-zsh", "codex"],
                     busy: false,
-                    visibleText: "Chat about this\nEnter to select"
+                    visibleText: """
+                    › Run /review on my current changes
+
+                    gpt-5.4 xhigh · 27% left · ~/code/west-garden/agent-notify · Main [default]
+                    """
                 )
             ]),
             tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 0)),
