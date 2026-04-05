@@ -9,6 +9,7 @@ struct TrackedSession {
     let hasNotifiedForCurrentWait: Bool
 
     func updating(
+        agent: AgentKind? = nil,
         state: SessionState,
         fingerprint: String,
         now: Date,
@@ -16,7 +17,7 @@ struct TrackedSession {
     ) -> TrackedSession {
         TrackedSession(
             id: id,
-            agent: agent,
+            agent: agent ?? self.agent,
             state: state,
             lastFingerprint: fingerprint,
             lastChangeAt: lastFingerprint == fingerprint ? lastChangeAt : now,

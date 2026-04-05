@@ -14,14 +14,21 @@ final class SessionTracker {
     }
 
     func process(snapshot: TerminalTabSnapshot, now: Date) -> SessionEvent? {
-        guard let agent = AgentKind(processes: snapshot.processes) else {
+        let id = "\(snapshot.windowID):\(snapshot.tabIndex):\(snapshot.tty)"
+        let explicitAgent = AgentKind(processes: snapshot.processes)
+
+        if explicitAgent == nil, isPlainShell(snapshot.processes) {
+            sessions.removeValue(forKey: id)
             return nil
         }
 
-        let id = "\(snapshot.windowID):\(snapshot.tabIndex):\(snapshot.tty)"
+        guard let effectiveAgent = explicitAgent ?? sessions[id]?.agent else {
+            return nil
+        }
+
         let previous = sessions[id] ?? TrackedSession(
             id: id,
-            agent: agent,
+            agent: effectiveAgent,
             state: .unknown,
             lastFingerprint: "",
             lastChangeAt: now,
@@ -31,6 +38,7 @@ final class SessionTracker {
         let decision = detector.evaluate(previous: previous, snapshot: snapshot, now: now)
         let notified = decision.shouldNotify || (decision.state == .needsInput && previous.hasNotifiedForCurrentWait)
         let updated = previous.updating(
+            agent: explicitAgent,
             state: decision.state,
             fingerprint: decision.fingerprint,
             now: now,
@@ -39,10 +47,30 @@ final class SessionTracker {
         sessions[id] = updated
 
         let notification = decision.shouldNotify
-            ? NotificationPayload(sessionID: id, agent: agent, tty: snapshot.tty)
+            ? NotificationPayload(sessionID: id, agent: effectiveAgent, tty: snapshot.tty)
             : nil
 
         return SessionEvent(session: updated, notification: notification)
+    }
+
+    private func isPlainShell(_ processes: [String]) -> Bool {
+        guard !processes.isEmpty else {
+            return true
+        }
+
+        return processes.allSatisfy { isShellProcess($0) }
+    }
+
+    private func isShellProcess(_ process: String) -> Bool {
+        switch process
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .trimmingPrefix("-") {
+        case "login", "zsh", "bash", "sh", "fish", "pwsh", "csh", "tcsh", "ksh":
+            return true
+        default:
+            return false
+        }
     }
 }
 
@@ -59,5 +87,14 @@ extension AgentKind {
         }
 
         return nil
+    }
+}
+
+private extension String {
+    func trimmingPrefix(_ prefix: Character) -> String {
+        guard self.first == prefix else {
+            return self
+        }
+        return String(dropFirst())
     }
 }

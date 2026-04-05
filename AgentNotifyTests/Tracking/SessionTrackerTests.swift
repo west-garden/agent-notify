@@ -22,4 +22,134 @@ final class SessionTrackerTests: XCTestCase {
         let third = tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 30))
         XCTAssertNil(third?.notification)
     }
+
+    func test_wrapperProcessContinuationStillTracksKnownAgent() throws {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let waiting = try fixture(named: "claude_waiting")
+        let initial = snapshot(
+            windowID: 60,
+            tabIndex: 2,
+            tty: "/dev/ttys011",
+            processes: ["login", "-zsh", "claude"],
+            visibleText: waiting
+        )
+        let wrapper = snapshot(
+            windowID: 60,
+            tabIndex: 2,
+            tty: "/dev/ttys011",
+            processes: ["login", "-zsh", "node"],
+            visibleText: waiting
+        )
+
+        XCTAssertNil(tracker.process(snapshot: initial, now: Date(timeIntervalSince1970: 10))?.notification)
+
+        let event = tracker.process(snapshot: wrapper, now: Date(timeIntervalSince1970: 20))
+
+        XCTAssertEqual(event?.session.agent, .claude)
+        XCTAssertEqual(event?.notification?.agent, .claude)
+    }
+
+    func test_plainShellClearsStateSoNextRunCanNotifyAgain() {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let waiting = snapshot(
+            windowID: 61,
+            tabIndex: 3,
+            tty: "/dev/ttys012",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: "Chat about this\nEnter to select"
+        )
+        let plainShell = snapshot(
+            windowID: 61,
+            tabIndex: 3,
+            tty: "/dev/ttys012",
+            processes: ["login", "-zsh"],
+            visibleText: "❯"
+        )
+
+        XCTAssertNil(tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 10))?.notification)
+        XCTAssertEqual(tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 20))?.notification?.agent, .codex)
+        XCTAssertNil(tracker.process(snapshot: plainShell, now: Date(timeIntervalSince1970: 30)))
+
+        let firstAfterReset = tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 40))
+        let secondAfterReset = tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 50))
+
+        XCTAssertNil(firstAfterReset?.notification)
+        XCTAssertEqual(secondAfterReset?.notification?.agent, .codex)
+    }
+
+    func test_outputChangesRearmNotifications() {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let waiting = snapshot(
+            windowID: 62,
+            tabIndex: 4,
+            tty: "/dev/ttys013",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: "Chat about this\nEnter to select"
+        )
+        let running = snapshot(
+            windowID: 62,
+            tabIndex: 4,
+            tty: "/dev/ttys013",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: "Streaming tokens...\nThinking..."
+        )
+
+        XCTAssertNil(tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 10))?.notification)
+        XCTAssertEqual(tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 20))?.notification?.agent, .codex)
+        XCTAssertNil(tracker.process(snapshot: running, now: Date(timeIntervalSince1970: 30))?.notification)
+        XCTAssertNil(tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 40))?.notification)
+
+        let rearmed = tracker.process(snapshot: waiting, now: Date(timeIntervalSince1970: 50))
+
+        XCTAssertEqual(rearmed?.notification?.agent, .codex)
+    }
+
+    func test_explicitAgentSwitchRefreshesTrackedSessionAndPayload() throws {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let claudeWaiting = try fixture(named: "claude_waiting")
+        let codexWaiting = try fixture(named: "codex_waiting")
+        let claude = snapshot(
+            windowID: 63,
+            tabIndex: 5,
+            tty: "/dev/ttys014",
+            processes: ["login", "-zsh", "claude"],
+            visibleText: claudeWaiting
+        )
+        let codex = snapshot(
+            windowID: 63,
+            tabIndex: 5,
+            tty: "/dev/ttys014",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: codexWaiting
+        )
+
+        XCTAssertNil(tracker.process(snapshot: claude, now: Date(timeIntervalSince1970: 10))?.notification)
+
+        let switched = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 20))
+        let notified = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 30))
+
+        XCTAssertEqual(switched?.session.agent, .codex)
+        XCTAssertNil(switched?.notification)
+        XCTAssertEqual(notified?.session.agent, .codex)
+        XCTAssertEqual(notified?.notification?.agent, .codex)
+    }
+}
+
+private extension SessionTrackerTests {
+    func snapshot(
+        windowID: Int,
+        tabIndex: Int,
+        tty: String,
+        processes: [String],
+        visibleText: String
+    ) -> TerminalTabSnapshot {
+        TerminalTabSnapshot(
+            windowID: windowID,
+            tabIndex: tabIndex,
+            tty: tty,
+            processes: processes,
+            busy: false,
+            visibleText: visibleText
+        )
+    }
 }
