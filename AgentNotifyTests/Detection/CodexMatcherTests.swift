@@ -21,4 +21,10 @@ final class CodexMatcherTests: XCTestCase {
         XCTAssertFalse(matcher.matchesInputReady(normalized))
         XCTAssertTrue(matcher.matchesActiveWork(normalized))
     }
+
+    func test_capitalizedThinkingCountsAsActiveWork() {
+        let matcher = CodexMatcher()
+
+        XCTAssertTrue(matcher.matchesActiveWork("Thinking..."))
+    }
 }

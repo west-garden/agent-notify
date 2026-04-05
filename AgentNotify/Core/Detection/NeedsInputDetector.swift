@@ -16,12 +16,9 @@ struct NeedsInputDetector {
         now: Date
     ) -> DetectionDecision {
         let fingerprint = normalizer.normalize(snapshot.visibleText)
+        let agent = resolvedAgent(previous: previous, snapshot: snapshot)
 
-        guard let previous else {
-            return DetectionDecision(state: .running, shouldNotify: false, fingerprint: fingerprint)
-        }
-
-        guard let agent = resolvedAgent(previous: previous, snapshot: snapshot) else {
+        guard let previous, let agent else {
             return DetectionDecision(state: .running, shouldNotify: false, fingerprint: fingerprint)
         }
 
@@ -40,7 +37,7 @@ struct NeedsInputDetector {
     }
 
     private func resolvedAgent(previous: TrackedSession?, snapshot: TerminalTabSnapshot) -> AgentKind? {
-        if let previous {
+        if let previous, !snapshotProcessesClearlyShowPlainShell(snapshot.processes) {
             return previous.agent
         }
 
@@ -55,6 +52,23 @@ struct NeedsInputDetector {
         return nil
     }
 
+    private func snapshotProcessesClearlyShowPlainShell(_ processes: [String]) -> Bool {
+        guard !processes.isEmpty else {
+            return true
+        }
+
+        return processes.allSatisfy { isShellProcess($0) }
+    }
+
+    private func isShellProcess(_ process: String) -> Bool {
+        switch process.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().trimmingPrefix("-") {
+        case "login", "zsh", "bash", "sh", "fish", "pwsh", "csh", "tcsh", "ksh":
+            return true
+        default:
+            return false
+        }
+    }
+
     private func matcher(for agent: AgentKind) -> IdlePatternMatcher {
         switch agent {
         case .claude:
@@ -62,5 +76,14 @@ struct NeedsInputDetector {
         case .codex:
             return CodexMatcher()
         }
+    }
+}
+
+private extension String {
+    func trimmingPrefix(_ prefix: Character) -> String {
+        guard self.first == prefix else {
+            return self
+        }
+        return String(dropFirst())
     }
 }

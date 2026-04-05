@@ -1,9 +1,11 @@
 struct ClaudeMatcher: IdlePatternMatcher {
     func matchesInputReady(_ normalizedText: String) -> Bool {
-        normalizedText.contains("❯") || normalizedText.contains("What would you like to do?")
+        let text = normalizedText.lowercased()
+        return normalizedText.contains("❯") || text.contains("what would you like to do?")
     }
 
     func matchesActiveWork(_ normalizedText: String) -> Bool {
-        normalizedText.contains("Esc to interrupt") || normalizedText.contains("tool use") || normalizedText.contains("thinking")
+        let text = normalizedText.lowercased()
+        return text.contains("esc to interrupt") || text.contains("tool use") || text.contains("thinking")
     }
 }

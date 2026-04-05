@@ -95,14 +95,14 @@ final class NeedsInputDetectorTests: XCTestCase {
         XCTAssertEqual(decision.fingerprint, normalized)
     }
 
-    func test_knownClaudeSessionUsesClaudeMatcherWithoutExactProcessToken() throws {
+    func test_knownClaudeSessionUsesClaudeMatcherWithWrapperLikeProcessList() throws {
         let waiting = try fixture(named: "claude_waiting")
         let normalized = TextNormalizer().normalize(waiting)
         let snapshot = TerminalTabSnapshot(
             windowID: 47,
             tabIndex: 2,
             tty: "/dev/ttys006",
-            processes: ["login", "-zsh", "bash"],
+            processes: ["login", "-zsh", "node"],
             busy: false,
             visibleText: waiting
         )
@@ -125,5 +125,58 @@ final class NeedsInputDetectorTests: XCTestCase {
         XCTAssertEqual(decision.state, .needsInput)
         XCTAssertTrue(decision.shouldNotify)
         XCTAssertEqual(decision.fingerprint, normalized)
+    }
+
+    func test_previousClaudeSessionDoesNotTriggerNeedsInputOnPlainShellFallback() throws {
+        let waiting = try fixture(named: "claude_waiting")
+        let normalized = TextNormalizer().normalize(waiting)
+        let snapshot = TerminalTabSnapshot(
+            windowID: 48,
+            tabIndex: 3,
+            tty: "/dev/ttys007",
+            processes: ["login", "-zsh"],
+            busy: false,
+            visibleText: waiting
+        )
+
+        let previous = TrackedSession(
+            id: "48:3:/dev/ttys007",
+            agent: .claude,
+            state: .running,
+            lastFingerprint: normalized,
+            lastChangeAt: Date(timeIntervalSince1970: 10),
+            hasNotifiedForCurrentWait: false
+        )
+
+        let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
+            previous: previous,
+            snapshot: snapshot,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(decision.state, .running)
+        XCTAssertFalse(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, normalized)
+    }
+
+    func test_plainShellWithoutKnownAgentStaysRunning() throws {
+        let snapshot = TerminalTabSnapshot(
+            windowID: 49,
+            tabIndex: 4,
+            tty: "/dev/ttys008",
+            processes: ["login", "-zsh"],
+            busy: false,
+            visibleText: "❯"
+        )
+
+        let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
+            previous: nil,
+            snapshot: snapshot,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(decision.state, .running)
+        XCTAssertFalse(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, "❯")
     }
 }

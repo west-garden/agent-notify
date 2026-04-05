@@ -21,4 +21,10 @@ final class ClaudeMatcherTests: XCTestCase {
         XCTAssertFalse(matcher.matchesInputReady(normalized))
         XCTAssertTrue(matcher.matchesActiveWork(normalized))
     }
+
+    func test_capitalizedThinkingCountsAsActiveWork() {
+        let matcher = ClaudeMatcher()
+
+        XCTAssertTrue(matcher.matchesActiveWork("Thinking..."))
+    }
 }
