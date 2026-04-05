@@ -1,0 +1,32 @@
+name: AgentNotify
+options:
+  minimumXcodeGenVersion: 2.38.0
+targets:
+  AgentNotify:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: AgentNotify
+    resources:
+      - path: AgentNotify/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.westgarden.AgentNotify
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+    scheme:
+      testTargets:
+        - AgentNotifyTests
+  AgentNotifyTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: AgentNotifyTests
+    resources:
+      - path: AgentNotifyTests/Fixtures
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: AgentNotify
