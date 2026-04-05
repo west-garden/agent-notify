@@ -1,1 +1,10 @@
-43	1	/dev/ttys000	login,-zsh,claude	false	Claude is waiting\n❯
+[
+  {
+    "windowID": 43,
+    "tabIndex": 1,
+    "tty": "/dev/ttys000",
+    "processes": ["login", "-zsh", "claude"],
+    "busy": false,
+    "visibleText": "Claude is waiting\n❯\t"
+  }
+]

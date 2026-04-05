@@ -1,6 +1,6 @@
 import Foundation
 
-struct TerminalTabSnapshot {
+struct TerminalTabSnapshot: Decodable, Equatable {
     let windowID: Int
     let tabIndex: Int
     let tty: String
