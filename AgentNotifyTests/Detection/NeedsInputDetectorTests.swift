@@ -63,6 +63,43 @@ final class NeedsInputDetectorTests: XCTestCase {
         XCTAssertTrue(decision.shouldNotify)
     }
 
+    func test_quietCodexPromptAtBottomOverridesOlderActiveMarkers() throws {
+        let waiting = try fixture(named: "codex_waiting")
+        let mixed = [
+            "Thinking...",
+            "tool uses: reading files",
+            waiting
+        ].joined(separator: "\n")
+        let normalized = TextNormalizer().normalize(mixed)
+        let snapshot = TerminalTabSnapshot(
+            windowID: 51,
+            tabIndex: 6,
+            tty: "/dev/ttys010",
+            processes: ["login", "-zsh", "codex"],
+            busy: false,
+            visibleText: mixed
+        )
+
+        let previous = TrackedSession(
+            id: "51:6:/dev/ttys010",
+            agent: .codex,
+            state: .running,
+            lastFingerprint: normalized,
+            lastChangeAt: Date(timeIntervalSince1970: 10),
+            hasNotifiedForCurrentWait: false
+        )
+
+        let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
+            previous: previous,
+            snapshot: snapshot,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(decision.state, .needsInput)
+        XCTAssertTrue(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, normalized)
+    }
+
     func test_streamingClaudeOutputStaysRunning() throws {
         let streaming = try fixture(named: "claude_streaming")
         let normalized = TextNormalizer().normalize(streaming)

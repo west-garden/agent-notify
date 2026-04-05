@@ -9,6 +9,7 @@ struct DetectionDecision {
 struct NeedsInputDetector {
     let quietPeriod: TimeInterval
     private let normalizer = TextNormalizer()
+    private let statusRegionLineCount = 6
 
     func evaluate(
         previous: TrackedSession?,
@@ -28,7 +29,10 @@ struct NeedsInputDetector {
 
         let quietFor = now.timeIntervalSince(previous.lastChangeAt)
         let matcher: IdlePatternMatcher = matcher(for: agent)
-        let shouldWait = quietFor >= quietPeriod && matcher.matchesInputReady(fingerprint) && !matcher.matchesActiveWork(fingerprint)
+        let statusRegion = statusRegion(from: fingerprint)
+        let shouldWait = quietFor >= quietPeriod
+            && matcher.matchesInputReady(statusRegion)
+            && !matcher.matchesActiveWork(statusRegion)
         return DetectionDecision(
             state: shouldWait ? .needsInput : .running,
             shouldNotify: shouldWait && !previous.hasNotifiedForCurrentWait,
@@ -76,6 +80,13 @@ struct NeedsInputDetector {
         case .codex:
             return CodexMatcher()
         }
+    }
+
+    private func statusRegion(from fingerprint: String) -> String {
+        fingerprint
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .suffix(statusRegionLineCount)
+            .joined(separator: "\n")
     }
 }
 
