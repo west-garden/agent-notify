@@ -8,27 +8,31 @@ struct DetectionDecision {
 
 struct NeedsInputDetector {
     let quietPeriod: TimeInterval
+    private let normalizer = TextNormalizer()
 
     func evaluate(
         previous: TrackedSession?,
         snapshot: TerminalTabSnapshot,
         now: Date
     ) -> DetectionDecision {
-        let fingerprint = snapshot.visibleText
+        let fingerprint = normalizer.normalize(snapshot.visibleText)
 
         guard let previous else {
             return DetectionDecision(state: .running, shouldNotify: false, fingerprint: fingerprint)
         }
+
+        let matcher: IdlePatternMatcher = snapshot.processes.contains("claude") ? ClaudeMatcher() : CodexMatcher()
 
         if previous.lastFingerprint != fingerprint {
             return DetectionDecision(state: .running, shouldNotify: false, fingerprint: fingerprint)
         }
 
         let quietFor = now.timeIntervalSince(previous.lastChangeAt)
-        if quietFor < quietPeriod {
-            return DetectionDecision(state: .running, shouldNotify: false, fingerprint: fingerprint)
-        }
-
-        return DetectionDecision(state: .running, shouldNotify: false, fingerprint: fingerprint)
+        let shouldWait = quietFor >= quietPeriod && matcher.matchesInputReady(fingerprint) && !matcher.matchesActiveWork(fingerprint)
+        return DetectionDecision(
+            state: shouldWait ? .needsInput : .running,
+            shouldNotify: shouldWait && !previous.hasNotifiedForCurrentWait,
+            fingerprint: fingerprint
+        )
     }
 }

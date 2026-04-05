@@ -1,0 +1,3 @@
+Thinking...
+tool use: reading files
+Esc to interrupt
