@@ -37,16 +37,16 @@ struct NeedsInputDetector {
     }
 
     private func resolvedAgent(previous: TrackedSession?, snapshot: TerminalTabSnapshot) -> AgentKind? {
-        if let previous, !snapshotProcessesClearlyShowPlainShell(snapshot.processes) {
-            return previous.agent
-        }
-
         if snapshot.processes.contains("claude") {
             return .claude
         }
 
         if snapshot.processes.contains("codex") {
             return .codex
+        }
+
+        if let previous, !snapshotProcessesClearlyShowPlainShell(snapshot.processes) {
+            return previous.agent
         }
 
         return nil

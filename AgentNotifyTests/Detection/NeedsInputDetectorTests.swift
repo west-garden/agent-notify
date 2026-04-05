@@ -179,4 +179,36 @@ final class NeedsInputDetectorTests: XCTestCase {
         XCTAssertFalse(decision.shouldNotify)
         XCTAssertEqual(decision.fingerprint, "❯")
     }
+
+    func test_explicitCurrentCodexProcessOverridesPreviousClaudeAgent() throws {
+        let waiting = try fixture(named: "codex_waiting")
+        let normalized = TextNormalizer().normalize(waiting)
+        let snapshot = TerminalTabSnapshot(
+            windowID: 50,
+            tabIndex: 5,
+            tty: "/dev/ttys009",
+            processes: ["login", "-zsh", "codex"],
+            busy: false,
+            visibleText: waiting
+        )
+
+        let previous = TrackedSession(
+            id: "50:5:/dev/ttys009",
+            agent: .claude,
+            state: .running,
+            lastFingerprint: normalized,
+            lastChangeAt: Date(timeIntervalSince1970: 10),
+            hasNotifiedForCurrentWait: false
+        )
+
+        let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
+            previous: previous,
+            snapshot: snapshot,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(decision.state, .needsInput)
+        XCTAssertTrue(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, normalized)
+    }
 }
