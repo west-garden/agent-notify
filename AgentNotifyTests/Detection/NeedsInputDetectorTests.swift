@@ -94,4 +94,36 @@ final class NeedsInputDetectorTests: XCTestCase {
         XCTAssertFalse(decision.shouldNotify)
         XCTAssertEqual(decision.fingerprint, normalized)
     }
+
+    func test_knownClaudeSessionUsesClaudeMatcherWithoutExactProcessToken() throws {
+        let waiting = try fixture(named: "claude_waiting")
+        let normalized = TextNormalizer().normalize(waiting)
+        let snapshot = TerminalTabSnapshot(
+            windowID: 47,
+            tabIndex: 2,
+            tty: "/dev/ttys006",
+            processes: ["login", "-zsh", "bash"],
+            busy: false,
+            visibleText: waiting
+        )
+
+        let previous = TrackedSession(
+            id: "47:2:/dev/ttys006",
+            agent: .claude,
+            state: .running,
+            lastFingerprint: normalized,
+            lastChangeAt: Date(timeIntervalSince1970: 10),
+            hasNotifiedForCurrentWait: false
+        )
+
+        let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
+            previous: previous,
+            snapshot: snapshot,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(decision.state, .needsInput)
+        XCTAssertTrue(decision.shouldNotify)
+        XCTAssertEqual(decision.fingerprint, normalized)
+    }
 }
