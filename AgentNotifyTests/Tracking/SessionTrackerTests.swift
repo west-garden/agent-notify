@@ -133,6 +133,40 @@ final class SessionTrackerTests: XCTestCase {
         XCTAssertEqual(notified?.session.agent, .codex)
         XCTAssertEqual(notified?.notification?.agent, .codex)
     }
+
+    func test_explicitAgentSwitchWithSameTextRearmsDebounceAfterPriorNotification() {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let sharedWaiting = """
+        ❯ What would you like to do?
+        Chat about this
+        Enter to select
+        """
+        let claude = snapshot(
+            windowID: 64,
+            tabIndex: 6,
+            tty: "/dev/ttys015",
+            processes: ["login", "-zsh", "claude"],
+            visibleText: sharedWaiting
+        )
+        let codex = snapshot(
+            windowID: 64,
+            tabIndex: 6,
+            tty: "/dev/ttys015",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: sharedWaiting
+        )
+
+        XCTAssertNil(tracker.process(snapshot: claude, now: Date(timeIntervalSince1970: 10))?.notification)
+        XCTAssertEqual(tracker.process(snapshot: claude, now: Date(timeIntervalSince1970: 20))?.notification?.agent, .claude)
+
+        let switched = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 30))
+        let rearmed = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 40))
+
+        XCTAssertEqual(switched?.session.agent, .codex)
+        XCTAssertNil(switched?.notification)
+        XCTAssertEqual(rearmed?.session.agent, .codex)
+        XCTAssertEqual(rearmed?.notification?.agent, .codex)
+    }
 }
 
 private extension SessionTrackerTests {

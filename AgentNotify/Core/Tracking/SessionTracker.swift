@@ -26,14 +26,27 @@ final class SessionTracker {
             return nil
         }
 
-        let previous = sessions[id] ?? TrackedSession(
-            id: id,
-            agent: effectiveAgent,
-            state: .unknown,
-            lastFingerprint: "",
-            lastChangeAt: now,
-            hasNotifiedForCurrentWait: false
-        )
+        let stored = sessions[id]
+        let previous: TrackedSession
+        if let stored, let explicitAgent, explicitAgent != stored.agent {
+            previous = TrackedSession(
+                id: id,
+                agent: explicitAgent,
+                state: .unknown,
+                lastFingerprint: stored.lastFingerprint,
+                lastChangeAt: now,
+                hasNotifiedForCurrentWait: false
+            )
+        } else {
+            previous = stored ?? TrackedSession(
+                id: id,
+                agent: effectiveAgent,
+                state: .unknown,
+                lastFingerprint: "",
+                lastChangeAt: now,
+                hasNotifiedForCurrentWait: false
+            )
+        }
 
         let decision = detector.evaluate(previous: previous, snapshot: snapshot, now: now)
         let notified = decision.shouldNotify || (decision.state == .needsInput && previous.hasNotifiedForCurrentWait)
