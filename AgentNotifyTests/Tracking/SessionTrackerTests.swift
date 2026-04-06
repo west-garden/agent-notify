@@ -170,13 +170,6 @@ final class SessionTrackerTests: XCTestCase {
 
     func test_activeSessionsCarryWindowTabIdentityAndPruneMissingTabs() {
         let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
-        let codex = snapshot(
-            windowID: 70,
-            tabIndex: 1,
-            tty: "/dev/ttys020",
-            processes: ["login", "-zsh", "codex"],
-            visibleText: "Chat about this\nEnter to select"
-        )
         let claude = snapshot(
             windowID: 71,
             tabIndex: 3,
@@ -184,26 +177,33 @@ final class SessionTrackerTests: XCTestCase {
             processes: ["login", "-zsh", "claude"],
             visibleText: "What would you like to do?"
         )
+        let codex = snapshot(
+            windowID: 70,
+            tabIndex: 1,
+            tty: "/dev/ttys020",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: "Chat about this\nEnter to select"
+        )
 
-        _ = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 10))
-        _ = tracker.process(snapshot: claude, now: Date(timeIntervalSince1970: 20))
+        _ = tracker.process(snapshot: claude, now: Date(timeIntervalSince1970: 10))
+        _ = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 20))
         tracker.finishCycle(activeSessionIDs: ["70:1:/dev/ttys020", "71:3:/dev/ttys021"])
 
         let identities = tracker.activeSessions().map { ($0.windowID, $0.tabIndex, $0.tty) }
-        let expectedIdentities = [(70, 1, "/dev/ttys020"), (71, 3, "/dev/ttys021")]
-        XCTAssertEqual(identities.count, expectedIdentities.count)
-        XCTAssertTrue(
-            zip(identities, expectedIdentities).allSatisfy { pair in
-                let actual = pair.0
-                let expected = pair.1
-                return actual.0 == expected.0 && actual.1 == expected.1 && actual.2 == expected.2
-            }
-        )
+        XCTAssertEqual(identities.count, 2)
+        XCTAssertEqual(identities[0].0, 70)
+        XCTAssertEqual(identities[0].1, 1)
+        XCTAssertEqual(identities[0].2, "/dev/ttys020")
+        XCTAssertEqual(identities[1].0, 71)
+        XCTAssertEqual(identities[1].1, 3)
+        XCTAssertEqual(identities[1].2, "/dev/ttys021")
 
         tracker.finishCycle(activeSessionIDs: ["71:3:/dev/ttys021"])
 
         let remaining = tracker.activeSessions()
         XCTAssertEqual(remaining.count, 1)
+        XCTAssertEqual(remaining.first?.id, "71:3:/dev/ttys021")
+        XCTAssertEqual(remaining.first?.tty, "/dev/ttys021")
         XCTAssertEqual(remaining.first?.locationLabel, "Window 71 / Tab 3")
     }
 }

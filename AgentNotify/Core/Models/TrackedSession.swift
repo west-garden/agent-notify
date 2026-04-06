@@ -18,9 +18,9 @@ struct TrackedSession {
         lastFingerprint: String,
         lastChangeAt: Date,
         hasNotifiedForCurrentWait: Bool,
-        windowID: Int = 0,
-        tabIndex: Int = 0,
-        tty: String = ""
+        windowID: Int,
+        tabIndex: Int,
+        tty: String
     ) {
         self.id = id
         self.agent = agent

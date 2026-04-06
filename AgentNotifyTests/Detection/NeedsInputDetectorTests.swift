@@ -18,7 +18,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: "Streaming tokens...\nThinking...",
             lastChangeAt: Date(timeIntervalSince1970: 8),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 43,
+            tabIndex: 0,
+            tty: "/dev/ttys003"
         )
 
         let detector = NeedsInputDetector(quietPeriod: 3)
@@ -50,7 +53,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: TextNormalizer().normalize(waiting),
             lastChangeAt: Date(timeIntervalSince1970: 10),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 45,
+            tabIndex: 1,
+            tty: "/dev/ttys004"
         )
 
         let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
@@ -86,7 +92,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: normalized,
             lastChangeAt: Date(timeIntervalSince1970: 10),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 51,
+            tabIndex: 6,
+            tty: "/dev/ttys010"
         )
 
         let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
@@ -118,7 +127,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: normalized,
             lastChangeAt: Date(timeIntervalSince1970: 10),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 46,
+            tabIndex: 0,
+            tty: "/dev/ttys005"
         )
 
         let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
@@ -150,7 +162,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: normalized,
             lastChangeAt: Date(timeIntervalSince1970: 10),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 47,
+            tabIndex: 2,
+            tty: "/dev/ttys006"
         )
 
         let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
@@ -182,7 +197,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: normalized,
             lastChangeAt: Date(timeIntervalSince1970: 10),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 48,
+            tabIndex: 3,
+            tty: "/dev/ttys007"
         )
 
         let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
@@ -235,7 +253,10 @@ final class NeedsInputDetectorTests: XCTestCase {
             state: .running,
             lastFingerprint: normalized,
             lastChangeAt: Date(timeIntervalSince1970: 10),
-            hasNotifiedForCurrentWait: false
+            hasNotifiedForCurrentWait: false,
+            windowID: 50,
+            tabIndex: 5,
+            tty: "/dev/ttys009"
         )
 
         let decision = NeedsInputDetector(quietPeriod: 3).evaluate(
