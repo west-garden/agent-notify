@@ -113,17 +113,17 @@ final class MenuBarController: NSObject {
         let menu = NSMenu()
 
         menu.addItem(
-            withTitle: monitorController.isRunning ? "Stop Monitoring" : "Start Monitoring",
+            withTitle: monitorController.isRunning ? String(localized: "Stop Monitoring") : String(localized: "Start Monitoring"),
             action: #selector(toggleMonitoring),
             keyEquivalent: ""
         )
         menu.addItem(
-            withTitle: monitorController.isMuted ? "Unmute Alerts" : "Mute Alerts",
+            withTitle: monitorController.isMuted ? String(localized: "Unmute Alerts") : String(localized: "Mute Alerts"),
             action: #selector(toggleMute),
             keyEquivalent: ""
         )
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: String(localized: "Quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.items.forEach { $0.target = self }
         return menu
     }
@@ -159,7 +159,7 @@ final class MenuBarController: NSObject {
             try terminalNavigator.focus(windowID: row.windowID, tabIndex: row.tabIndex)
             dashboardPresenter.showInlineError(nil)
         } catch {
-            dashboardPresenter.showInlineError("That Terminal tab is no longer available.")
+            dashboardPresenter.showInlineError(String(localized: "That Terminal tab is no longer available."))
         }
     }
 
@@ -189,7 +189,7 @@ final class MenuBarController: NSObject {
             }
             dashboardPresenter.showInlineError(nil)
         } catch {
-            dashboardPresenter.showInlineError("Could not update Launch at Login.")
+            dashboardPresenter.showInlineError(String(localized: "Could not update Launch at Login."))
         }
 
         refreshDashboard()

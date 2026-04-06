@@ -17,8 +17,10 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var needsAttentionRows: [DashboardRow] = []
     @Published private(set) var allMonitoredRows: [DashboardRow] = []
     @Published private(set) var needsAttentionEmptyText: String?
-    @Published private(set) var notificationsStatusText = "Unknown"
-    @Published private(set) var automationStatusText = "Unknown"
+    @Published private(set) var notificationsStatusText = String(localized: "Unknown")
+    @Published private(set) var automationStatusText = String(localized: "Unknown")
+    @Published private(set) var isNotificationsGranted = false
+    @Published private(set) var isAutomationGranted = false
     @Published private(set) var launchAtLoginEnabled = false
     @Published var isMuted = false
     @Published var alertCooldownSeconds: TimeInterval = 60
@@ -36,7 +38,10 @@ final class DashboardViewModel: ObservableObject {
         launchAtLoginEnabled: Bool,
         alertCooldown: TimeInterval
     ) {
-        summaryText = "\(status.isRunning ? "Monitoring" : "Paused") · \(status.trackedSessionCount) tracked · \(status.waitingSessionCount) waiting"
+        let stateLabel = status.isRunning ? String(localized: "Monitoring") : String(localized: "Paused")
+        let trackedLabel = String(localized: "\(status.trackedSessionCount) tracked")
+        let waitingLabel = String(localized: "\(status.waitingSessionCount) waiting")
+        summaryText = "\(stateLabel) · \(trackedLabel) · \(waitingLabel)"
 
         let rows = status.tabs.map { tab in
             DashboardRow(
@@ -44,7 +49,7 @@ final class DashboardViewModel: ObservableObject {
                 windowID: tab.windowID,
                 tabIndex: tab.tabIndex,
                 title: tab.title,
-                badge: tab.isWaiting ? "Waiting" : "Running",
+                badge: tab.isWaiting ? String(localized: "Waiting") : String(localized: "Running"),
                 isWaiting: tab.isWaiting,
                 isCoolingDown: tab.isCoolingDown
             )
@@ -53,11 +58,13 @@ final class DashboardViewModel: ObservableObject {
         allMonitoredRows = rows
         needsAttentionRows = rows.filter(\.isWaiting)
         needsAttentionEmptyText = needsAttentionRows.isEmpty
-            ? "No tracked tabs need attention right now. Monitoring is still active."
+            ? String(localized: "No tracked tabs need attention right now. Monitoring is still active.")
             : nil
 
-        notificationsStatusText = permissions.notificationsGranted ? "Granted" : "Missing"
-        automationStatusText = permissions.automationLikelyGranted ? "Granted" : "Needs Approval"
+        isNotificationsGranted = permissions.notificationsGranted
+        isAutomationGranted = permissions.automationLikelyGranted
+        notificationsStatusText = permissions.notificationsGranted ? String(localized: "Granted") : String(localized: "Missing")
+        automationStatusText = permissions.automationLikelyGranted ? String(localized: "Granted") : String(localized: "Needs Approval")
         self.launchAtLoginEnabled = launchAtLoginEnabled
         isMuted = status.isMuted
         alertCooldownSeconds = alertCooldown

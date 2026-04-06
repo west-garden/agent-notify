@@ -9,7 +9,7 @@ struct MonitoredTabState: Equatable {
     let isCoolingDown: Bool
 
     var title: String {
-        "Window \(windowID) / Tab \(tabIndex)"
+        String(localized: "Window \(windowID) / Tab \(tabIndex)")
     }
 
     var isWaiting: Bool {

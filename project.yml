@@ -1,6 +1,7 @@
 name: AgentNotify
 options:
   minimumXcodeGenVersion: 2.38.0
+  knownRegions: [en, zh-Hans, Base]
 targets:
   AgentNotify:
     type: application

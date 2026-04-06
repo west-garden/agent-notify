@@ -9,8 +9,8 @@ final class NotificationPayloadTests: XCTestCase {
             tty: "/dev/ttys004"
         )
 
-        XCTAssertEqual(payload.title, "Codex Waiting")
-        XCTAssertEqual(payload.body, "Terminal tab on /dev/ttys004 is waiting for your input.")
+        XCTAssertEqual(payload.title, String(localized: "Codex Waiting"))
+        XCTAssertEqual(payload.body, String(localized: "Terminal tab on \("/dev/ttys004") is waiting for your input."))
     }
 
     func test_claudePayloadUsesAgentSpecificTitle() {
@@ -20,7 +20,7 @@ final class NotificationPayloadTests: XCTestCase {
             tty: "/dev/ttys007"
         )
 
-        XCTAssertEqual(payload.title, "Claude Waiting")
-        XCTAssertEqual(payload.body, "Terminal tab on /dev/ttys007 is waiting for your input.")
+        XCTAssertEqual(payload.title, String(localized: "Claude Waiting"))
+        XCTAssertEqual(payload.body, String(localized: "Terminal tab on \("/dev/ttys007") is waiting for your input."))
     }
 }

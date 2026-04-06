@@ -204,7 +204,7 @@ final class SessionTrackerTests: XCTestCase {
         XCTAssertEqual(remaining.count, 1)
         XCTAssertEqual(remaining.first?.id, "71:3:/dev/ttys021")
         XCTAssertEqual(remaining.first?.tty, "/dev/ttys021")
-        XCTAssertEqual(remaining.first?.locationLabel, "Window 71 / Tab 3")
+        XCTAssertEqual(remaining.first?.locationLabel, String(localized: "Window \(71) / Tab \(3)"))
     }
 }
 

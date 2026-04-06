@@ -8,13 +8,13 @@ struct NotificationPayload {
     var title: String {
         switch agent {
         case .claude:
-            return "Claude Waiting"
+            return String(localized: "Claude Waiting")
         case .codex:
-            return "Codex Waiting"
+            return String(localized: "Codex Waiting")
         }
     }
 
     var body: String {
-        "Terminal tab on \(tty) is waiting for your input."
+        String(localized: "Terminal tab on \(tty) is waiting for your input.")
     }
 }

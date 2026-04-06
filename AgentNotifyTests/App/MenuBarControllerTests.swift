@@ -113,6 +113,6 @@ final class MenuBarControllerTests: XCTestCase {
             )
         }
 
-        XCTAssertEqual(presenter.lastInlineError, "That Terminal tab is no longer available.")
+        XCTAssertEqual(presenter.lastInlineError, String(localized: "That Terminal tab is no longer available."))
     }
 }

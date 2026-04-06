@@ -38,15 +38,20 @@ final class DashboardViewModelTests: XCTestCase {
             alertCooldown: 120
         )
 
-        XCTAssertEqual(viewModel.summaryText, "Monitoring · 2 tracked · 1 waiting")
-        XCTAssertEqual(viewModel.needsAttentionRows.map(\.title), ["Window 2 / Tab 3"])
-        XCTAssertEqual(viewModel.allMonitoredRows.map(\.title), ["Window 1 / Tab 1", "Window 2 / Tab 3"])
+        XCTAssertEqual(
+            viewModel.summaryText,
+            "\(String(localized: "Monitoring")) · \(String(localized: "\(2) tracked")) · \(String(localized: "\(1) waiting"))"
+        )
+        XCTAssertEqual(viewModel.needsAttentionRows.map(\.title), [String(localized: "Window \(2) / Tab \(3)")])
+        XCTAssertEqual(viewModel.allMonitoredRows.map(\.title), [String(localized: "Window \(1) / Tab \(1)"), String(localized: "Window \(2) / Tab \(3)")])
         XCTAssertNil(viewModel.needsAttentionEmptyText)
         XCTAssertEqual(viewModel.alertCooldownSeconds, 120)
         XCTAssertTrue(viewModel.launchAtLoginEnabled)
         XCTAssertFalse(viewModel.isMuted)
-        XCTAssertEqual(viewModel.notificationsStatusText, "Granted")
-        XCTAssertEqual(viewModel.automationStatusText, "Granted")
+        XCTAssertEqual(viewModel.notificationsStatusText, String(localized: "Granted"))
+        XCTAssertEqual(viewModel.automationStatusText, String(localized: "Granted"))
+        XCTAssertTrue(viewModel.isNotificationsGranted)
+        XCTAssertTrue(viewModel.isAutomationGranted)
         XCTAssertNil(viewModel.inlineErrorText)
 
         viewModel.apply(
@@ -75,10 +80,12 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             viewModel.needsAttentionEmptyText,
-            "No tracked tabs need attention right now. Monitoring is still active."
+            String(localized: "No tracked tabs need attention right now. Monitoring is still active.")
         )
-        XCTAssertEqual(viewModel.notificationsStatusText, "Missing")
-        XCTAssertEqual(viewModel.automationStatusText, "Needs Approval")
+        XCTAssertEqual(viewModel.notificationsStatusText, String(localized: "Missing"))
+        XCTAssertEqual(viewModel.automationStatusText, String(localized: "Needs Approval"))
+        XCTAssertFalse(viewModel.isNotificationsGranted)
+        XCTAssertFalse(viewModel.isAutomationGranted)
         XCTAssertFalse(viewModel.launchAtLoginEnabled)
     }
 

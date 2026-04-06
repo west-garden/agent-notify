@@ -34,7 +34,7 @@ struct TrackedSession {
     }
 
     var locationLabel: String {
-        "Window \(windowID) / Tab \(tabIndex)"
+        String(localized: "Window \(windowID) / Tab \(tabIndex)")
     }
 
     func updating(

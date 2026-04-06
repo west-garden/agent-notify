@@ -27,7 +27,7 @@ struct DashboardView: View {
 
                     dashboardSection(title: "All Monitored", accent: .blue) {
                         if viewModel.allMonitoredRows.isEmpty {
-                            emptyState(text: "No tabs are being monitored yet.")
+                            emptyState(text: String(localized: "No tabs are being monitored yet."))
                         } else {
                             rowList(viewModel.allMonitoredRows)
                         }
@@ -90,21 +90,21 @@ struct DashboardView: View {
                     statusTile(
                         title: "Notifications",
                         value: viewModel.notificationsStatusText,
-                        tint: viewModel.notificationsStatusText == "Granted" ? .green : .red
+                        tint: viewModel.isNotificationsGranted ? .green : .red
                     )
                     statusTile(
                         title: "Automation",
                         value: viewModel.automationStatusText,
-                        tint: viewModel.automationStatusText == "Granted" ? .green : .orange
+                        tint: viewModel.isAutomationGranted ? .green : .orange
                     )
                     statusTile(
                         title: "Launch at Login",
-                        value: viewModel.launchAtLoginEnabled ? "On" : "Off",
+                        value: viewModel.launchAtLoginEnabled ? String(localized: "On") : String(localized: "Off"),
                         tint: viewModel.launchAtLoginEnabled ? .green : .gray
                     )
                     statusTile(
                         title: "Alerts",
-                        value: viewModel.isMuted ? "Muted" : "Sound On",
+                        value: viewModel.isMuted ? String(localized: "Muted") : String(localized: "Sound On"),
                         tint: viewModel.isMuted ? .orange : .blue
                     )
                 }
@@ -228,7 +228,7 @@ struct DashboardView: View {
     }
 
     private func dashboardSection<Content: View>(
-        title: String,
+        title: LocalizedStringKey,
         accent: Color,
         maxWidth: CGFloat? = nil,
         @ViewBuilder content: () -> Content
@@ -265,7 +265,7 @@ struct DashboardView: View {
             )
     }
 
-    private func statusTile(title: String, value: String, tint: Color) -> some View {
+    private func statusTile(title: LocalizedStringKey, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
@@ -282,7 +282,7 @@ struct DashboardView: View {
         )
     }
 
-    private func settingStatusCard(title: String, value: String) -> some View {
+    private func settingStatusCard(title: LocalizedStringKey, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
@@ -300,10 +300,10 @@ struct DashboardView: View {
 
     private func cooldownLabel(for seconds: TimeInterval) -> String {
         if seconds < 60 {
-            return "\(Int(seconds))s"
+            return String(localized: "\(Int(seconds))s")
         }
 
         let minutes = Int(seconds / 60)
-        return minutes == 1 ? "1 minute" : "\(minutes) minutes"
+        return minutes == 1 ? String(localized: "1 minute") : String(localized: "\(minutes) minutes")
     }
 }

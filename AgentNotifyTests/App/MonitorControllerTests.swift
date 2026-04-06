@@ -128,7 +128,7 @@ final class MonitorControllerTests: XCTestCase {
 
         XCTAssertEqual(notifier.sent.count, 1)
         XCTAssertEqual(sound.playCount, 1)
-        XCTAssertEqual(notifier.sent.first?.title, "Codex Waiting")
+        XCTAssertEqual(notifier.sent.first?.title, String(localized: "Codex Waiting"))
     }
 
     func test_statusIncludesRowsAndSecondAlertWaitsForCooldown() throws {
@@ -233,7 +233,7 @@ final class MonitorControllerTests: XCTestCase {
         XCTAssertEqual(secondStatus.trackedSessionCount, 2)
         XCTAssertEqual(secondStatus.waitingSessionCount, 2)
         XCTAssertEqual(secondStatus.tabs.filter(\.isCoolingDown).count, 1)
-        XCTAssertEqual(secondStatus.tabs.map(\.title), ["Window 45 / Tab 1", "Window 46 / Tab 2"])
+        XCTAssertEqual(secondStatus.tabs.map(\.title), [String(localized: "Window \(45) / Tab \(1)"), String(localized: "Window \(46) / Tab \(2)")])
         XCTAssertEqual(secondStatus.tabs.map(\.isWaiting), [true, true])
 
         controller.tick(now: Date(timeIntervalSince1970: 81))
