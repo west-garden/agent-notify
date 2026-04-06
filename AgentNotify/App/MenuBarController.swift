@@ -1,41 +1,71 @@
 import AppKit
 
+@MainActor
 final class MenuBarController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let monitorController: MonitorController
     private let permissionCoordinator: PermissionCoordinator
     private let launchAtLoginController: LaunchAtLoginController
+    private let settingsStore: MonitorSettingsStoring
+    private let dashboardPresenter: DashboardPresenting
+    private let terminalNavigator: TerminalNavigating
 
-    private let statusMenuItem = NSMenuItem(title: "Status: Starting…", action: nil, keyEquivalent: "")
-    private let trackedMenuItem = NSMenuItem(title: "Tracked Tabs: 0", action: nil, keyEquivalent: "")
-    private let lastAlertMenuItem = NSMenuItem(title: "Last Alert: None", action: nil, keyEquivalent: "")
-    private let permissionsMenuItem = NSMenuItem(title: "Notifications: Unknown", action: nil, keyEquivalent: "")
-    private lazy var startStopMenuItem = NSMenuItem(title: "Start Monitoring", action: #selector(toggleMonitoring), keyEquivalent: "")
-    private lazy var muteMenuItem = NSMenuItem(title: "Mute Alerts", action: #selector(toggleMute), keyEquivalent: "")
-    private lazy var launchAtLoginMenuItem = NSMenuItem(title: launchAtLoginTitle, action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+    private var latestStatus: MonitorStatus
 
     init(
-        monitorController: MonitorController = MonitorController(
-            poller: TerminalPoller(runner: AppleScriptRunner()),
-            tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 3)),
-            notifier: NotificationService(),
-            soundPlayer: SoundPlayer()
-        ),
+        monitorController: MonitorController,
         permissionCoordinator: PermissionCoordinator = PermissionCoordinator(),
-        launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController()
+        launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController(),
+        settingsStore: MonitorSettingsStoring = MonitorSettingsStore(),
+        dashboardPresenter: DashboardPresenting,
+        terminalNavigator: TerminalNavigating = TerminalNavigator()
     ) {
         self.monitorController = monitorController
         self.permissionCoordinator = permissionCoordinator
         self.launchAtLoginController = launchAtLoginController
+        self.settingsStore = settingsStore
+        self.dashboardPresenter = dashboardPresenter
+        self.terminalNavigator = terminalNavigator
+        self.latestStatus = MonitorStatus(
+            isRunning: monitorController.isRunning,
+            isMuted: monitorController.isMuted,
+            trackedSessionCount: monitorController.trackedSessionCount,
+            waitingSessionCount: monitorController.waitingSessionCount,
+            lastTriggeredTTY: monitorController.lastTriggeredTTY,
+            lastErrorDescription: monitorController.lastErrorDescription,
+            tabs: monitorController.tabs
+        )
         super.init()
+
         self.monitorController.onStatusChange = { [weak self] status in
-            self?.updateMenu(status: status)
+            guard let self else {
+                return
+            }
+
+            self.latestStatus = status
+            self.refreshDashboard()
+        }
+
+        self.dashboardPresenter.onRowSelected = { [weak self] row in
+            self?.focus(row: row)
+        }
+        self.dashboardPresenter.onMutedChanged = { [weak self] muted in
+            self?.monitorController.setMuted(muted)
+        }
+        self.dashboardPresenter.onAlertCooldownChanged = { [weak self] cooldown in
+            self?.monitorController.setAlertCooldown(cooldown)
+            self?.refreshDashboard()
+        }
+        self.dashboardPresenter.onLaunchAtLoginToggle = { [weak self] in
+            self?.toggleLaunchAtLogin()
+        }
+        self.dashboardPresenter.onTestMoo = { [weak self] in
+            self?.monitorController.playTestSound()
         }
     }
 
     func start() {
-        configureMenu()
-        statusItem.button?.title = "Moo"
+        configureStatusItem()
 
         Task { [weak self] in
             guard let self else {
@@ -43,13 +73,85 @@ final class MenuBarController: NSObject {
             }
 
             _ = await permissionCoordinator.requestNotificationAuthorizationIfNeeded()
-            let permissions = await permissionCoordinator.currentState()
-            await MainActor.run {
-                self.updatePermissions(permissions)
-                self.updateLaunchAtLoginTitle()
-                self.monitorController.start(pollInterval: 2)
-                self.startStopMenuItem.title = "Stop Monitoring"
+            monitorController.start(pollInterval: 2)
+            refreshDashboard()
+        }
+    }
+
+    func openDashboard() {
+        dashboardPresenter.show()
+        refreshDashboard()
+    }
+
+    @objc
+    func handleStatusItemClick(_ sender: NSStatusBarButton) {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showContextMenu()
+            return
+        }
+
+        openDashboard()
+    }
+
+    private func configureStatusItem() {
+        statusItem.menu = nil
+        statusItem.button?.title = "Moo"
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(handleStatusItemClick(_:))
+        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    private func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        menu.addItem(
+            withTitle: monitorController.isRunning ? "Stop Monitoring" : "Start Monitoring",
+            action: #selector(toggleMonitoring),
+            keyEquivalent: ""
+        )
+        menu.addItem(
+            withTitle: monitorController.isMuted ? "Unmute Alerts" : "Mute Alerts",
+            action: #selector(toggleMute),
+            keyEquivalent: ""
+        )
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.items.forEach { $0.target = self }
+        return menu
+    }
+
+    private func showContextMenu() {
+        let menu = makeContextMenu()
+        guard let button = statusItem.button else {
+            return
+        }
+
+        let point = NSPoint(x: 0, y: button.bounds.height + 4)
+        menu.popUp(positioning: nil, at: point, in: button)
+    }
+
+    private func refreshDashboard() {
+        Task { [weak self] in
+            guard let self else {
+                return
             }
+
+            let permissions = await permissionCoordinator.currentState()
+            dashboardPresenter.apply(
+                status: latestStatus,
+                permissions: permissions,
+                launchAtLoginEnabled: launchAtLoginController.isEnabled,
+                alertCooldown: settingsStore.alertCooldown
+            )
+        }
+    }
+
+    private func focus(row: DashboardRow) {
+        do {
+            try terminalNavigator.focus(windowID: row.windowID, tabIndex: row.tabIndex)
+            dashboardPresenter.showInlineError(nil)
+        } catch {
+            dashboardPresenter.showInlineError("That Terminal tab is no longer available.")
         }
     }
 
@@ -57,22 +159,19 @@ final class MenuBarController: NSObject {
     private func toggleMonitoring() {
         if monitorController.isRunning {
             monitorController.stop()
-            startStopMenuItem.title = "Start Monitoring"
-            return
+        } else {
+            monitorController.start(pollInterval: 2)
         }
 
-        monitorController.start(pollInterval: 2)
-        startStopMenuItem.title = "Stop Monitoring"
+        refreshDashboard()
     }
 
     @objc
     private func toggleMute() {
-        let muted = !monitorController.isMuted
-        monitorController.setMuted(muted)
-        syncMuteMenuTitle(isMuted: muted)
+        monitorController.setMuted(!monitorController.isMuted)
+        refreshDashboard()
     }
 
-    @objc
     private func toggleLaunchAtLogin() {
         do {
             if launchAtLoginController.isEnabled {
@@ -80,67 +179,11 @@ final class MenuBarController: NSObject {
             } else {
                 try launchAtLoginController.enable()
             }
-
-            updateLaunchAtLoginTitle()
+            dashboardPresenter.showInlineError(nil)
         } catch {
-            updateLaunchAtLoginTitle()
-        }
-    }
-
-    private func configureMenu() {
-        let menu = NSMenu()
-
-        [statusMenuItem, trackedMenuItem, lastAlertMenuItem, permissionsMenuItem].forEach {
-            $0.isEnabled = false
-            menu.addItem($0)
+            dashboardPresenter.showInlineError("Could not update Launch at Login.")
         }
 
-        syncMuteMenuTitle(isMuted: monitorController.isMuted)
-
-        startStopMenuItem.target = self
-        muteMenuItem.target = self
-        launchAtLoginMenuItem.target = self
-
-        menu.addItem(.separator())
-        menu.addItem(startStopMenuItem)
-        menu.addItem(muteMenuItem)
-        menu.addItem(launchAtLoginMenuItem)
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-
-        statusItem.menu = menu
-    }
-
-    private func updateMenu(status: MonitorStatus) {
-        syncMuteMenuTitle(isMuted: status.isMuted)
-
-        if let error = status.lastErrorDescription, !error.isEmpty {
-            statusMenuItem.title = "Status: Error"
-            trackedMenuItem.title = "Tracked Tabs: 0"
-            lastAlertMenuItem.title = "Last Alert: \(error)"
-            return
-        }
-
-        statusMenuItem.title = status.isRunning ? "Status: Monitoring" : "Status: Paused"
-        trackedMenuItem.title = "Tracked Tabs: \(status.trackedSessionCount)"
-        lastAlertMenuItem.title = "Last Alert: \(status.lastTriggeredTTY ?? "None")"
-    }
-
-    private func syncMuteMenuTitle(isMuted: Bool) {
-        muteMenuItem.title = isMuted ? "Unmute Alerts" : "Mute Alerts"
-    }
-
-    private func updatePermissions(_ permissions: PermissionState) {
-        let notificationsText = permissions.notificationsGranted ? "Granted" : "Missing"
-        let automationText = permissions.automationLikelyGranted ? "Granted" : "Needs Approval"
-        permissionsMenuItem.title = "Notifications: \(notificationsText) · Automation: \(automationText)"
-    }
-
-    private var launchAtLoginTitle: String {
-        launchAtLoginController.isEnabled ? "Disable Launch at Login" : "Enable Launch at Login"
-    }
-
-    private func updateLaunchAtLoginTitle() {
-        launchAtLoginMenuItem.title = launchAtLoginTitle
+        refreshDashboard()
     }
 }

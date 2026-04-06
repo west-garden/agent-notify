@@ -7,7 +7,8 @@ Menu bar monitor for Apple Terminal sessions running `claude` and `codex`.
 - Watches Apple Terminal tabs without changing how you launch agents.
 - Detects when a `claude` or `codex` session has stopped and is waiting for your next input.
 - Sends a macOS notification and plays a bundled `moo.wav` alert once per waiting cycle.
-- Shows current monitor status, tracked tab count, last alert, mute, and launch-at-login controls in the menu bar.
+- Opens a dashboard window with `Needs Attention`, `All Monitored`, and `Settings`.
+- Lets you click any `Window X / Tab Y` row to jump straight to that Terminal tab.
 
 ## Requirements
 
@@ -31,10 +32,16 @@ Menu bar monitor for Apple Terminal sessions running `claude` and `codex`.
 
 ## Menu Bar
 
+- Left-click `Moo` to open the dashboard window.
+- Right-click `Moo` to open the utility context menu.
 - `Start Monitoring` / `Stop Monitoring` controls the poll loop.
 - `Mute Alerts` silences notifications and the cow sound without stopping monitoring.
-- `Enable Launch at Login` toggles startup registration through `SMAppService`.
-- `Tracked Tabs` and `Last Alert` help you find the tab that needs attention.
+
+## Dashboard
+
+- `Needs Attention` shows only tabs waiting for your next input.
+- `All Monitored` shows every tracked `claude` or `codex` tab.
+- `Settings` includes mute, launch at login, permission state, `Test Moo`, and alert cooldown.
 
 ## Verification
 
