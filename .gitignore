@@ -3,3 +3,4 @@ build/
 DerivedData/
 *.xcworkspace
 AgentNotify.xcodeproj/
+.superpowers/
