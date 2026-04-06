@@ -3,8 +3,10 @@ import XCTest
 @testable import AgentNotify
 
 final class SoundPlayerTests: XCTestCase {
-    func test_cowSoundAssetIsBundledAndPlayable() throws {
+    func test_alertSoundAssetIsBundledShortAndPlayable() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "moo", withExtension: "wav"))
-        XCTAssertNoThrow(try AVAudioPlayer(contentsOf: url))
+        let player = try AVAudioPlayer(contentsOf: url)
+
+        XCTAssertLessThanOrEqual(player.duration, 0.4)
     }
 }
