@@ -69,7 +69,7 @@ final class MenuBarController: NSObject {
     private func toggleMute() {
         let muted = !monitorController.isMuted
         monitorController.setMuted(muted)
-        muteMenuItem.title = muted ? "Unmute Alerts" : "Mute Alerts"
+        syncMuteMenuTitle(isMuted: muted)
     }
 
     @objc
@@ -95,6 +95,8 @@ final class MenuBarController: NSObject {
             menu.addItem($0)
         }
 
+        syncMuteMenuTitle(isMuted: monitorController.isMuted)
+
         startStopMenuItem.target = self
         muteMenuItem.target = self
         launchAtLoginMenuItem.target = self
@@ -110,6 +112,8 @@ final class MenuBarController: NSObject {
     }
 
     private func updateMenu(status: MonitorStatus) {
+        syncMuteMenuTitle(isMuted: status.isMuted)
+
         if let error = status.lastErrorDescription, !error.isEmpty {
             statusMenuItem.title = "Status: Error"
             trackedMenuItem.title = "Tracked Tabs: 0"
@@ -120,6 +124,10 @@ final class MenuBarController: NSObject {
         statusMenuItem.title = status.isRunning ? "Status: Monitoring" : "Status: Paused"
         trackedMenuItem.title = "Tracked Tabs: \(status.trackedSessionCount)"
         lastAlertMenuItem.title = "Last Alert: \(status.lastTriggeredTTY ?? "None")"
+    }
+
+    private func syncMuteMenuTitle(isMuted: Bool) {
+        muteMenuItem.title = isMuted ? "Unmute Alerts" : "Mute Alerts"
     }
 
     private func updatePermissions(_ permissions: PermissionState) {

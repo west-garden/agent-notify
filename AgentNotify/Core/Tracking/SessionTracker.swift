@@ -77,6 +77,26 @@ final class SessionTracker {
         sessions = sessions.filter { activeSessionIDs.contains($0.key) }
     }
 
+    func rearmNotifications(for sessionIDs: Set<String>) {
+        for sessionID in sessionIDs {
+            guard let session = sessions[sessionID], session.state == .needsInput else {
+                continue
+            }
+
+            sessions[sessionID] = TrackedSession(
+                id: session.id,
+                agent: session.agent,
+                state: session.state,
+                lastFingerprint: session.lastFingerprint,
+                lastChangeAt: session.lastChangeAt,
+                hasNotifiedForCurrentWait: false,
+                windowID: session.windowID,
+                tabIndex: session.tabIndex,
+                tty: session.tty
+            )
+        }
+    }
+
     func activeSessions() -> [TrackedSession] {
         sessions.values.sorted {
             if $0.windowID != $1.windowID {

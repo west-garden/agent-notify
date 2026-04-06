@@ -214,4 +214,60 @@ final class MonitorControllerTests: XCTestCase {
         XCTAssertEqual(notifier.sent.map(\.tty), ["/dev/ttys004", "/dev/ttys005"])
         XCTAssertEqual(sound.playCount, 2)
     }
+
+    func test_mutingClearsCoolingDownAndRearmsWaitingAlert() throws {
+        let notifier = SpyNotifier()
+        let sound = SpySoundPlayer()
+        let settings = InMemoryMonitorSettingsStore()
+        settings.alertCooldown = 60
+
+        let codexWaiting = try fixture(named: "codex_waiting")
+        let claudeWaiting = try fixture(named: "claude_waiting")
+
+        let controller = MonitorController(
+            poller: SequencePoller(sequences: [
+                [
+                    waitingSnapshot(
+                        windowID: 45,
+                        tabIndex: 1,
+                        tty: "/dev/ttys004",
+                        agent: "codex",
+                        visibleText: codexWaiting
+                    ),
+                    waitingSnapshot(
+                        windowID: 46,
+                        tabIndex: 2,
+                        tty: "/dev/ttys005",
+                        agent: "claude",
+                        visibleText: claudeWaiting
+                    )
+                ]
+            ]),
+            tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 0)),
+            notifier: notifier,
+            soundPlayer: sound,
+            settingsStore: settings
+        )
+
+        controller.tick(now: Date(timeIntervalSince1970: 10))
+        controller.tick(now: Date(timeIntervalSince1970: 20))
+
+        XCTAssertEqual(notifier.sent.map(\.tty), ["/dev/ttys004"])
+        XCTAssertEqual(controller.tabs.filter(\.isCoolingDown).count, 1)
+
+        controller.setMuted(true)
+
+        XCTAssertEqual(controller.tabs.filter(\.isCoolingDown).count, 0)
+
+        controller.tick(now: Date(timeIntervalSince1970: 30))
+
+        XCTAssertEqual(notifier.sent.map(\.tty), ["/dev/ttys004"])
+        XCTAssertEqual(controller.tabs.filter(\.isCoolingDown).count, 1)
+
+        controller.setMuted(false)
+        controller.tick(now: Date(timeIntervalSince1970: 81))
+
+        XCTAssertEqual(notifier.sent.map(\.tty), ["/dev/ttys004", "/dev/ttys005"])
+        XCTAssertEqual(sound.playCount, 2)
+    }
 }

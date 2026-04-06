@@ -94,8 +94,10 @@ final class MonitorController {
             settingsStore.isMuted = muted
 
             if muted {
-                queuedNotifications.removeAll()
-                queuedNotificationOrder.removeAll()
+                let clearedSessionIDs = Set(queuedNotificationOrder)
+                clearQueuedNotifications()
+                tracker.rearmNotifications(for: clearedSessionIDs)
+                updateTrackedState(from: tracker.activeSessions())
                 cooldownExpiresAt = nil
             }
 
@@ -165,11 +167,9 @@ final class MonitorController {
     ) {
         pruneQueuedNotifications(activeSessionsByID: activeSessionsByID)
 
-        guard !isMuted else {
-            return
+        if !isMuted {
+            flushQueuedNotification(now: now, activeSessionsByID: activeSessionsByID)
         }
-
-        flushQueuedNotification(now: now, activeSessionsByID: activeSessionsByID)
 
         for event in events {
             guard let payload = event.notification else {
@@ -189,7 +189,7 @@ final class MonitorController {
             return
         }
 
-        if canSendNotification(now: now) {
+        if !isMuted && canSendNotification(now: now) {
             sendNotification(payload, now: now)
             return
         }
@@ -242,6 +242,11 @@ final class MonitorController {
 
         queuedNotificationOrder = prunedOrder
         queuedNotifications = prunedNotifications
+    }
+
+    private func clearQueuedNotifications() {
+        queuedNotifications.removeAll()
+        queuedNotificationOrder.removeAll()
     }
 
     private func queueNotification(_ payload: NotificationPayload) {
