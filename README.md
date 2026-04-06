@@ -32,8 +32,8 @@ Menu bar monitor for Apple Terminal sessions running `claude` and `codex`.
 
 ## Menu Bar
 
-- Left-click `Moo` to open the dashboard window.
-- Right-click `Moo` to open the utility context menu.
+- Left-click the cow icon to open the dashboard window.
+- Right-click the cow icon to open the utility context menu.
 - `Start Monitoring` / `Stop Monitoring` controls the poll loop.
 - `Mute Alerts` silences notifications and the cow sound without stopping monitoring.
 
