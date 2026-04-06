@@ -11,24 +11,58 @@ final class MonitorController {
         let payload: NotificationPayload
     }
 
+    private struct ControllerState {
+        var isRunning = false
+        var isMuted = false
+        var controlGeneration: UInt64 = 0
+        var trackedSessionCount = 0
+        var waitingSessionCount = 0
+        var tabs: [MonitoredTabState] = []
+        var lastTriggeredTTY: String?
+        var lastErrorDescription: String?
+    }
+
     private let poller: TerminalPolling
     private let tracker: SessionTracker
     private let notifier: Notifying
     private let soundPlayer: SoundPlaying
     private let settingsStore: MonitorSettingsStoring
     private let workerQueue = DispatchQueue(label: "com.westgarden.AgentNotify.MonitorController")
+    private let stateLock = NSLock()
 
     private var queuedNotifications: [String: QueuedNotification] = [:]
     private var queuedNotificationOrder: [String] = []
     private var cooldownExpiresAt: Date?
 
-    private(set) var isRunning = false
-    private(set) var isMuted: Bool
-    private(set) var trackedSessionCount = 0
-    private(set) var waitingSessionCount = 0
-    private(set) var tabs: [MonitoredTabState] = []
-    private(set) var lastTriggeredTTY: String?
-    private(set) var lastErrorDescription: String?
+    private var state = ControllerState()
+
+    var isRunning: Bool {
+        withState { $0.isRunning }
+    }
+
+    var isMuted: Bool {
+        withState { $0.isMuted }
+    }
+
+    var trackedSessionCount: Int {
+        withState { $0.trackedSessionCount }
+    }
+
+    var waitingSessionCount: Int {
+        withState { $0.waitingSessionCount }
+    }
+
+    var tabs: [MonitoredTabState] {
+        withState { $0.tabs }
+    }
+
+    var lastTriggeredTTY: String? {
+        withState { $0.lastTriggeredTTY }
+    }
+
+    var lastErrorDescription: String? {
+        withState { $0.lastErrorDescription }
+    }
 
     var onStatusChange: ((MonitorStatus) -> Void)?
 
@@ -46,7 +80,9 @@ final class MonitorController {
         self.notifier = notifier
         self.soundPlayer = soundPlayer
         self.settingsStore = settingsStore
-        self.isMuted = settingsStore.isMuted
+        updateState { state in
+            state.isMuted = settingsStore.isMuted
+        }
     }
 
     deinit {
@@ -58,9 +94,7 @@ final class MonitorController {
             return
         }
 
-        workerQueue.sync {
-            isRunning = true
-        }
+        updateState { $0.isRunning = true }
         publishStatus()
 
         let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
@@ -78,37 +112,54 @@ final class MonitorController {
             return
         }
 
-        workerQueue.sync {
-            isRunning = false
+        updateState { state in
+            state.isRunning = false
+            state.controlGeneration &+= 1
         }
         publishStatus()
     }
 
     func setMuted(_ muted: Bool) {
-        workerQueue.sync {
-            guard isMuted != muted else {
-                return
+        let changed = updateState { state in
+            guard state.isMuted != muted else {
+                return false
             }
 
-            isMuted = muted
-            settingsStore.isMuted = muted
+            state.isMuted = muted
+            state.controlGeneration &+= 1
 
             if muted {
-                let clearedSessionIDs = Set(queuedNotificationOrder)
-                clearQueuedNotifications()
-                tracker.rearmNotifications(for: clearedSessionIDs)
-                updateTrackedState(from: tracker.activeSessions())
-                cooldownExpiresAt = nil
+                state.tabs = state.tabs.map {
+                    MonitoredTabState(
+                        id: $0.id,
+                        windowID: $0.windowID,
+                        tabIndex: $0.tabIndex,
+                        agent: $0.agent,
+                        state: $0.state,
+                        isCoolingDown: false
+                    )
+                }
             }
 
-            publishStatus()
+            return true
+        }
+
+        guard changed else {
+            return
+        }
+
+        settingsStore.isMuted = muted
+        publishStatus()
+
+        if muted {
+            workerQueue.async { [weak self] in
+                self?.clearMutedNotifications()
+            }
         }
     }
 
     func setAlertCooldown(_ cooldown: TimeInterval) {
-        workerQueue.sync {
-            settingsStore.alertCooldown = cooldown
-        }
+        settingsStore.alertCooldown = cooldown
     }
 
     func playTestSound() {
@@ -116,18 +167,20 @@ final class MonitorController {
     }
 
     func tick(now: Date = .now) {
+        let controlGeneration = currentControlGeneration()
         workerQueue.sync {
-            performTick(now: now)
+            performTick(now: now, controlGeneration: controlGeneration)
         }
     }
 
     private func scheduleTick(now: Date) {
+        let controlGeneration = currentControlGeneration()
         workerQueue.async { [weak self] in
-            self?.performTick(now: now)
+            self?.performTick(now: now, controlGeneration: controlGeneration)
         }
     }
 
-    private func performTick(now: Date) {
+    private func performTick(now: Date, controlGeneration: UInt64) {
         do {
             let snapshots = try poller.poll()
             var activeSessionIDs = Set<String>()
@@ -147,14 +200,20 @@ final class MonitorController {
             let activeSessions = tracker.activeSessions()
             let activeSessionsByID = Dictionary(uniqueKeysWithValues: activeSessions.map { ($0.id, $0) })
 
-            lastErrorDescription = nil
-            reconcileNotifications(now: now, activeSessionsByID: activeSessionsByID, events: events)
+            reconcileNotifications(
+                now: now,
+                activeSessionsByID: activeSessionsByID,
+                events: events,
+                controlGeneration: controlGeneration
+            )
             updateTrackedState(from: activeSessions)
         } catch {
-            trackedSessionCount = 0
-            waitingSessionCount = 0
-            tabs = []
-            lastErrorDescription = error.localizedDescription
+            updateState { state in
+                state.trackedSessionCount = 0
+                state.waitingSessionCount = 0
+                state.tabs = []
+                state.lastErrorDescription = error.localizedDescription
+            }
         }
 
         publishStatus()
@@ -163,12 +222,17 @@ final class MonitorController {
     private func reconcileNotifications(
         now: Date,
         activeSessionsByID: [String: TrackedSession],
-        events: [SessionEvent]
+        events: [SessionEvent],
+        controlGeneration: UInt64
     ) {
         pruneQueuedNotifications(activeSessionsByID: activeSessionsByID)
 
         if !isMuted {
-            flushQueuedNotification(now: now, activeSessionsByID: activeSessionsByID)
+            flushQueuedNotification(
+                now: now,
+                activeSessionsByID: activeSessionsByID,
+                controlGeneration: controlGeneration
+            )
         }
 
         for event in events {
@@ -176,21 +240,27 @@ final class MonitorController {
                 continue
             }
 
-            handleNotification(payload, now: now, activeSessionsByID: activeSessionsByID)
+            handleNotification(
+                payload,
+                now: now,
+                activeSessionsByID: activeSessionsByID,
+                controlGeneration: controlGeneration
+            )
         }
     }
 
     private func handleNotification(
         _ payload: NotificationPayload,
         now: Date,
-        activeSessionsByID: [String: TrackedSession]
+        activeSessionsByID: [String: TrackedSession],
+        controlGeneration: UInt64
     ) {
         guard activeSessionsByID[payload.sessionID]?.state == .needsInput else {
             return
         }
 
         if !isMuted && canSendNotification(now: now) {
-            sendNotification(payload, now: now)
+            sendNotification(payload, now: now, controlGeneration: controlGeneration)
             return
         }
 
@@ -199,8 +269,13 @@ final class MonitorController {
 
     private func flushQueuedNotification(
         now: Date,
-        activeSessionsByID: [String: TrackedSession]
+        activeSessionsByID: [String: TrackedSession],
+        controlGeneration: UInt64
     ) {
+        guard !isMuted else {
+            return
+        }
+
         guard canSendNotification(now: now) else {
             return
         }
@@ -216,7 +291,7 @@ final class MonitorController {
                 continue
             }
 
-            sendNotification(queued.payload, now: now)
+            sendNotification(queued.payload, now: now, controlGeneration: controlGeneration)
             return
         }
     }
@@ -244,9 +319,13 @@ final class MonitorController {
         queuedNotifications = prunedNotifications
     }
 
-    private func clearQueuedNotifications() {
+    private func clearMutedNotifications() {
+        let activeSessionIDs = Set(queuedNotificationOrder)
         queuedNotifications.removeAll()
         queuedNotificationOrder.removeAll()
+        tracker.rearmNotifications(for: activeSessionIDs)
+        updateTrackedState(from: tracker.activeSessions())
+        publishStatus()
     }
 
     private func queueNotification(_ payload: NotificationPayload) {
@@ -265,37 +344,51 @@ final class MonitorController {
         return now >= cooldownExpiresAt
     }
 
-    private func sendNotification(_ payload: NotificationPayload, now: Date) {
+    private func sendNotification(_ payload: NotificationPayload, now: Date, controlGeneration: UInt64) {
+        guard currentControlGeneration() == controlGeneration else {
+            return
+        }
+
+        guard !isMuted else {
+            return
+        }
+
         notifier.notify(payload)
         soundPlayer.playCowSound()
-        lastTriggeredTTY = payload.tty
+        updateState { state in
+            state.lastTriggeredTTY = payload.tty
+        }
         cooldownExpiresAt = now.addingTimeInterval(settingsStore.alertCooldown)
     }
 
     private func updateTrackedState(from activeSessions: [TrackedSession]) {
-        trackedSessionCount = activeSessions.count
-        waitingSessionCount = activeSessions.filter { $0.state == .needsInput }.count
-        tabs = activeSessions.map { session in
-            MonitoredTabState(
-                id: session.id,
-                windowID: session.windowID,
-                tabIndex: session.tabIndex,
-                agent: session.agent,
-                state: session.state,
-                isCoolingDown: queuedNotifications[session.id] != nil
-            )
+        updateState { state in
+            state.trackedSessionCount = activeSessions.count
+            state.waitingSessionCount = activeSessions.filter { $0.state == .needsInput }.count
+            state.tabs = activeSessions.map { session in
+                MonitoredTabState(
+                    id: session.id,
+                    windowID: session.windowID,
+                    tabIndex: session.tabIndex,
+                    agent: session.agent,
+                    state: session.state,
+                    isCoolingDown: queuedNotifications[session.id] != nil
+                )
+            }
+            state.lastErrorDescription = nil
         }
     }
 
     private func publishStatus() {
+        let snapshot = withState { $0 }
         let status = MonitorStatus(
-            isRunning: isRunning,
-            isMuted: isMuted,
-            trackedSessionCount: trackedSessionCount,
-            waitingSessionCount: waitingSessionCount,
-            lastTriggeredTTY: lastTriggeredTTY,
-            lastErrorDescription: lastErrorDescription,
-            tabs: tabs
+            isRunning: snapshot.isRunning,
+            isMuted: snapshot.isMuted,
+            trackedSessionCount: snapshot.trackedSessionCount,
+            waitingSessionCount: snapshot.waitingSessionCount,
+            lastTriggeredTTY: snapshot.lastTriggeredTTY,
+            lastErrorDescription: snapshot.lastErrorDescription,
+            tabs: snapshot.tabs
         )
         let callback = onStatusChange
 
@@ -307,5 +400,22 @@ final class MonitorController {
         DispatchQueue.main.async {
             callback?(status)
         }
+    }
+
+    private func withState<T>(_ body: (ControllerState) -> T) -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body(state)
+    }
+
+    private func currentControlGeneration() -> UInt64 {
+        withState { $0.controlGeneration }
+    }
+
+    @discardableResult
+    private func updateState<T>(_ body: (inout ControllerState) -> T) -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body(&state)
     }
 }

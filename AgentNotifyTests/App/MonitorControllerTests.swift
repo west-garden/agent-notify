@@ -43,6 +43,35 @@ private final class InMemoryMonitorSettingsStore: MonitorSettingsStoring {
     var alertCooldown: TimeInterval = 60
 }
 
+private final class BlockingSequencePoller: TerminalPolling {
+    private let snapshots: [TerminalTabSnapshot]
+    private let started = DispatchSemaphore(value: 0)
+    private let release = DispatchSemaphore(value: 0)
+    private var callCount = 0
+
+    init(snapshots: [TerminalTabSnapshot]) {
+        self.snapshots = snapshots
+    }
+
+    func waitUntilPollingStarts() {
+        _ = started.wait(timeout: .now() + 1)
+    }
+
+    func allowPollToContinue() {
+        release.signal()
+    }
+
+    func poll() throws -> [TerminalTabSnapshot] {
+        callCount += 1
+        if callCount >= 2 {
+            started.signal()
+            _ = release.wait(timeout: .now() + 1)
+        }
+
+        return snapshots
+    }
+}
+
 private struct StubPoller: TerminalPolling {
     let snapshots: [TerminalTabSnapshot]
 
@@ -269,5 +298,47 @@ final class MonitorControllerTests: XCTestCase {
 
         XCTAssertEqual(notifier.sent.map(\.tty), ["/dev/ttys004", "/dev/ttys005"])
         XCTAssertEqual(sound.playCount, 2)
+    }
+
+    func test_mutingWhilePollIsInFlightPreventsTheNextAlert() throws {
+        let notifier = SpyNotifier()
+        let sound = SpySoundPlayer()
+        let settings = InMemoryMonitorSettingsStore()
+        settings.alertCooldown = 60
+        let waiting = try fixture(named: "codex_waiting")
+
+        let snapshot = waitingSnapshot(
+            windowID: 45,
+            tabIndex: 1,
+            tty: "/dev/ttys004",
+            agent: "codex",
+            visibleText: waiting
+        )
+        let poller = BlockingSequencePoller(snapshots: [snapshot])
+        let controller = MonitorController(
+            poller: poller,
+            tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 0)),
+            notifier: notifier,
+            soundPlayer: sound,
+            settingsStore: settings
+        )
+
+        controller.tick(now: Date(timeIntervalSince1970: 10))
+
+        let finished = expectation(description: "in-flight tick finished")
+        DispatchQueue.global().async {
+            controller.tick(now: Date(timeIntervalSince1970: 20))
+            finished.fulfill()
+        }
+
+        poller.waitUntilPollingStarts()
+        controller.setMuted(true)
+        poller.allowPollToContinue()
+
+        wait(for: [finished], timeout: 1)
+
+        XCTAssertTrue(controller.isMuted)
+        XCTAssertEqual(notifier.sent.count, 0)
+        XCTAssertEqual(sound.playCount, 0)
     }
 }
