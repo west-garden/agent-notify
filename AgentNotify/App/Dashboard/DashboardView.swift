@@ -135,10 +135,7 @@ struct DashboardView: View {
 
             Toggle("Launch at Login", isOn: Binding(
                 get: { viewModel.launchAtLoginEnabled },
-                set: { enabled in
-                    viewModel.launchAtLoginEnabled = enabled
-                    viewModel.toggleLaunchAtLogin()
-                }
+                set: { _ in viewModel.toggleLaunchAtLogin() }
             ))
 
             Button("Test Moo") {

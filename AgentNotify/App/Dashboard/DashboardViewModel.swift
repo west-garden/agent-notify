@@ -13,13 +13,13 @@ struct DashboardRow: Identifiable, Equatable {
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
-    @Published private(set) var summaryText = "Paused | 0 tracked | 0 waiting"
+    @Published private(set) var summaryText = "Paused · 0 tracked · 0 waiting"
     @Published private(set) var needsAttentionRows: [DashboardRow] = []
     @Published private(set) var allMonitoredRows: [DashboardRow] = []
     @Published private(set) var needsAttentionEmptyText: String?
     @Published private(set) var notificationsStatusText = "Unknown"
     @Published private(set) var automationStatusText = "Unknown"
-    @Published var launchAtLoginEnabled = false
+    @Published private(set) var launchAtLoginEnabled = false
     @Published var isMuted = false
     @Published var alertCooldownSeconds: TimeInterval = 60
     @Published var inlineErrorText: String?
@@ -36,7 +36,7 @@ final class DashboardViewModel: ObservableObject {
         launchAtLoginEnabled: Bool,
         alertCooldown: TimeInterval
     ) {
-        summaryText = "\(status.isRunning ? "Monitoring" : "Paused") | \(status.trackedSessionCount) tracked | \(status.waitingSessionCount) waiting"
+        summaryText = "\(status.isRunning ? "Monitoring" : "Paused") · \(status.trackedSessionCount) tracked · \(status.waitingSessionCount) waiting"
 
         let rows = status.tabs.map { tab in
             DashboardRow(

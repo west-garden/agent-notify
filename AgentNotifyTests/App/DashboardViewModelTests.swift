@@ -38,7 +38,7 @@ final class DashboardViewModelTests: XCTestCase {
             alertCooldown: 120
         )
 
-        XCTAssertEqual(viewModel.summaryText, "Monitoring | 2 tracked | 1 waiting")
+        XCTAssertEqual(viewModel.summaryText, "Monitoring · 2 tracked · 1 waiting")
         XCTAssertEqual(viewModel.needsAttentionRows.map(\.title), ["Window 2 / Tab 3"])
         XCTAssertEqual(viewModel.allMonitoredRows.map(\.title), ["Window 1 / Tab 1", "Window 2 / Tab 3"])
         XCTAssertNil(viewModel.needsAttentionEmptyText)
@@ -100,5 +100,31 @@ final class DashboardViewModelTests: XCTestCase {
         viewModel.select(row)
 
         XCTAssertEqual(selectedRow, row)
+    }
+
+    func test_settingsActionsForwardCallbacks() {
+        let viewModel = DashboardViewModel()
+
+        var mutedValue: Bool?
+        var cooldownValue: TimeInterval?
+        var launchToggleCount = 0
+        var testMooCount = 0
+
+        viewModel.onMutedChanged = { mutedValue = $0 }
+        viewModel.onAlertCooldownChanged = { cooldownValue = $0 }
+        viewModel.onLaunchAtLoginToggle = { launchToggleCount += 1 }
+        viewModel.onTestMoo = { testMooCount += 1 }
+
+        viewModel.setMuted(true)
+        viewModel.setAlertCooldown(120)
+        viewModel.toggleLaunchAtLogin()
+        viewModel.testMoo()
+
+        XCTAssertEqual(mutedValue, true)
+        XCTAssertTrue(viewModel.isMuted)
+        XCTAssertEqual(cooldownValue, 120)
+        XCTAssertEqual(viewModel.alertCooldownSeconds, 120)
+        XCTAssertEqual(launchToggleCount, 1)
+        XCTAssertEqual(testMooCount, 1)
     }
 }
