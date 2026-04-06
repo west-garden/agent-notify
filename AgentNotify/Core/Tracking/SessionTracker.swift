@@ -35,7 +35,10 @@ final class SessionTracker {
                 state: .unknown,
                 lastFingerprint: stored.lastFingerprint,
                 lastChangeAt: now,
-                hasNotifiedForCurrentWait: false
+                hasNotifiedForCurrentWait: false,
+                windowID: snapshot.windowID,
+                tabIndex: snapshot.tabIndex,
+                tty: snapshot.tty
             )
         } else {
             previous = stored ?? TrackedSession(
@@ -44,13 +47,17 @@ final class SessionTracker {
                 state: .unknown,
                 lastFingerprint: "",
                 lastChangeAt: now,
-                hasNotifiedForCurrentWait: false
+                hasNotifiedForCurrentWait: false,
+                windowID: snapshot.windowID,
+                tabIndex: snapshot.tabIndex,
+                tty: snapshot.tty
             )
         }
 
         let decision = detector.evaluate(previous: previous, snapshot: snapshot, now: now)
         let notified = decision.shouldNotify || (decision.state == .needsInput && previous.hasNotifiedForCurrentWait)
         let updated = previous.updating(
+            snapshot: snapshot,
             agent: explicitAgent,
             state: decision.state,
             fingerprint: decision.fingerprint,
@@ -64,6 +71,24 @@ final class SessionTracker {
             : nil
 
         return SessionEvent(session: updated, notification: notification)
+    }
+
+    func finishCycle(activeSessionIDs: Set<String>) {
+        sessions = sessions.filter { activeSessionIDs.contains($0.key) }
+    }
+
+    func activeSessions() -> [TrackedSession] {
+        sessions.values.sorted {
+            if $0.windowID != $1.windowID {
+                return $0.windowID < $1.windowID
+            }
+
+            if $0.tabIndex != $1.tabIndex {
+                return $0.tabIndex < $1.tabIndex
+            }
+
+            return $0.tty < $1.tty
+        }
     }
 
     private func isPlainShell(_ processes: [String]) -> Bool {

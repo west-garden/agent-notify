@@ -7,8 +7,38 @@ struct TrackedSession {
     let lastFingerprint: String
     let lastChangeAt: Date
     let hasNotifiedForCurrentWait: Bool
+    let windowID: Int
+    let tabIndex: Int
+    let tty: String
+
+    init(
+        id: String,
+        agent: AgentKind,
+        state: SessionState,
+        lastFingerprint: String,
+        lastChangeAt: Date,
+        hasNotifiedForCurrentWait: Bool,
+        windowID: Int = 0,
+        tabIndex: Int = 0,
+        tty: String = ""
+    ) {
+        self.id = id
+        self.agent = agent
+        self.state = state
+        self.lastFingerprint = lastFingerprint
+        self.lastChangeAt = lastChangeAt
+        self.hasNotifiedForCurrentWait = hasNotifiedForCurrentWait
+        self.windowID = windowID
+        self.tabIndex = tabIndex
+        self.tty = tty
+    }
+
+    var locationLabel: String {
+        "Window \(windowID) / Tab \(tabIndex)"
+    }
 
     func updating(
+        snapshot: TerminalTabSnapshot,
         agent: AgentKind? = nil,
         state: SessionState,
         fingerprint: String,
@@ -21,7 +51,10 @@ struct TrackedSession {
             state: state,
             lastFingerprint: fingerprint,
             lastChangeAt: lastFingerprint == fingerprint ? lastChangeAt : now,
-            hasNotifiedForCurrentWait: markNotified
+            hasNotifiedForCurrentWait: markNotified,
+            windowID: snapshot.windowID,
+            tabIndex: snapshot.tabIndex,
+            tty: snapshot.tty
         )
     }
 }

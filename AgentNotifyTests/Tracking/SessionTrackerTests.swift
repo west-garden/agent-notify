@@ -167,6 +167,45 @@ final class SessionTrackerTests: XCTestCase {
         XCTAssertEqual(rearmed?.session.agent, .codex)
         XCTAssertEqual(rearmed?.notification?.agent, .codex)
     }
+
+    func test_activeSessionsCarryWindowTabIdentityAndPruneMissingTabs() {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let codex = snapshot(
+            windowID: 70,
+            tabIndex: 1,
+            tty: "/dev/ttys020",
+            processes: ["login", "-zsh", "codex"],
+            visibleText: "Chat about this\nEnter to select"
+        )
+        let claude = snapshot(
+            windowID: 71,
+            tabIndex: 3,
+            tty: "/dev/ttys021",
+            processes: ["login", "-zsh", "claude"],
+            visibleText: "What would you like to do?"
+        )
+
+        _ = tracker.process(snapshot: codex, now: Date(timeIntervalSince1970: 10))
+        _ = tracker.process(snapshot: claude, now: Date(timeIntervalSince1970: 20))
+        tracker.finishCycle(activeSessionIDs: ["70:1:/dev/ttys020", "71:3:/dev/ttys021"])
+
+        let identities = tracker.activeSessions().map { ($0.windowID, $0.tabIndex, $0.tty) }
+        let expectedIdentities = [(70, 1, "/dev/ttys020"), (71, 3, "/dev/ttys021")]
+        XCTAssertEqual(identities.count, expectedIdentities.count)
+        XCTAssertTrue(
+            zip(identities, expectedIdentities).allSatisfy { pair in
+                let actual = pair.0
+                let expected = pair.1
+                return actual.0 == expected.0 && actual.1 == expected.1 && actual.2 == expected.2
+            }
+        )
+
+        tracker.finishCycle(activeSessionIDs: ["71:3:/dev/ttys021"])
+
+        let remaining = tracker.activeSessions()
+        XCTAssertEqual(remaining.count, 1)
+        XCTAssertEqual(remaining.first?.locationLabel, "Window 71 / Tab 3")
+    }
 }
 
 private extension SessionTrackerTests {
