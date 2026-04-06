@@ -95,10 +95,18 @@ final class MenuBarController: NSObject {
 
     private func configureStatusItem() {
         statusItem.menu = nil
-        statusItem.button?.title = "Moo"
-        statusItem.button?.target = self
-        statusItem.button?.action = #selector(handleStatusItemClick(_:))
-        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+
+        let image = Bundle.main.image(forResource: NSImage.Name("MenuBarCow"))
+        if let image {
+            image.size = NSSize(width: 18, height: 18)
+        }
+
+        if let button = statusItem.button {
+            MenuBarButtonStyler.apply(to: button, image: image)
+            button.target = self
+            button.action = #selector(handleStatusItemClick(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
     }
 
     private func makeContextMenu() -> NSMenu {
