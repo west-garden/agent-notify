@@ -16,7 +16,7 @@ final class MenuBarController: NSObject {
         monitorController: MonitorController,
         permissionCoordinator: PermissionCoordinator = PermissionCoordinator(),
         launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController(),
-        settingsStore: MonitorSettingsStoring = MonitorSettingsStore(),
+        settingsStore: MonitorSettingsStoring,
         dashboardPresenter: DashboardPresenting,
         terminalNavigator: TerminalNavigating = TerminalNavigator()
     ) {
