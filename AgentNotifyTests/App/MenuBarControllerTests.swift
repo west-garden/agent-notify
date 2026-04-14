@@ -39,6 +39,7 @@ private final class SpyDashboardPresenter: DashboardPresenting {
     var onAlertCooldownChanged: ((TimeInterval) -> Void)?
     var onLaunchAtLoginToggle: (() -> Void)?
     var onTestMoo: (() -> Void)?
+    var onQuitRequested: (() -> Void)?
 
     func show() {
         showCount += 1
@@ -114,5 +115,56 @@ final class MenuBarControllerTests: XCTestCase {
         }
 
         XCTAssertEqual(presenter.lastInlineError, String(localized: "That Terminal tab is no longer available."))
+    }
+
+    func test_quitRequestTerminatesApplication() {
+        let presenter = SpyDashboardPresenter()
+        let settingsStore = InMemoryMonitorSettingsStore()
+        let monitorController = MonitorController(
+            poller: StaticPoller(snapshots: []),
+            tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 3)),
+            notifier: SpyNotifier(),
+            soundPlayer: SpySoundPlayer(),
+            settingsStore: settingsStore
+        )
+
+        var terminateCount = 0
+        let controller = MenuBarController(
+            monitorController: monitorController,
+            settingsStore: settingsStore,
+            dashboardPresenter: presenter,
+            terminalNavigator: FailingNavigator(),
+            terminateApplication: { terminateCount += 1 }
+        )
+
+        withExtendedLifetime(controller) {
+            presenter.onQuitRequested?()
+        }
+
+        XCTAssertEqual(terminateCount, 1)
+    }
+
+    func test_contextMenuLeavesQuitItemUntargetedSoAppKitCanHandleIt() {
+        let presenter = SpyDashboardPresenter()
+        let settingsStore = InMemoryMonitorSettingsStore()
+        let monitorController = MonitorController(
+            poller: StaticPoller(snapshots: []),
+            tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 3)),
+            notifier: SpyNotifier(),
+            soundPlayer: SpySoundPlayer(),
+            settingsStore: settingsStore
+        )
+        let controller = MenuBarController(
+            monitorController: monitorController,
+            settingsStore: settingsStore,
+            dashboardPresenter: presenter,
+            terminalNavigator: FailingNavigator()
+        )
+
+        let menu = controller.makeContextMenuForTesting()
+        let quitItem = try? XCTUnwrap(menu.items.last)
+
+        XCTAssertEqual(quitItem?.title, String(localized: "Quit"))
+        XCTAssertNil(quitItem?.target)
     }
 }

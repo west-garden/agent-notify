@@ -3,9 +3,14 @@ import XCTest
 
 private final class SpyNotifier: Notifying {
     var sent: [NotificationPayload] = []
+    var clearedSessionIDs: [String] = []
 
     func notify(_ payload: NotificationPayload) {
         sent.append(payload)
+    }
+
+    func clearNotifications(for sessionIDs: Set<String>) {
+        clearedSessionIDs.append(contentsOf: sessionIDs.sorted())
     }
 }
 
@@ -425,5 +430,62 @@ final class MonitorControllerTests: XCTestCase {
 
         XCTAssertEqual(notifier.sent.map(\.tty), ["/dev/ttys004", "/dev/ttys005"])
         XCTAssertEqual(sound.playCount, 2)
+    }
+
+    func test_runningSessionClearsDeliveredNotificationAfterWaitResolves() throws {
+        let notifier = SpyNotifier()
+        let sound = SpySoundPlayer()
+        let settings = InMemoryMonitorSettingsStore()
+        let waiting = try fixture(named: "codex_waiting")
+        let working = """
+        • Working (1m 56s • esc to interrupt) · 1 background terminal running · /ps to view · /stop to close
+
+        › Implement {feature}
+
+          gpt-5.4 xhigh · ~/code/west-garden/agent-notify
+        """
+
+        let controller = MonitorController(
+            poller: SequencePoller(sequences: [
+                [
+                    waitingSnapshot(
+                        windowID: 72,
+                        tabIndex: 1,
+                        tty: "/dev/ttys022",
+                        agent: "codex",
+                        visibleText: waiting
+                    )
+                ],
+                [
+                    waitingSnapshot(
+                        windowID: 72,
+                        tabIndex: 1,
+                        tty: "/dev/ttys022",
+                        agent: "codex",
+                        visibleText: waiting
+                    )
+                ],
+                [
+                    waitingSnapshot(
+                        windowID: 72,
+                        tabIndex: 1,
+                        tty: "/dev/ttys022",
+                        agent: "codex",
+                        visibleText: working
+                    )
+                ]
+            ]),
+            tracker: SessionTracker(detector: NeedsInputDetector(quietPeriod: 0)),
+            notifier: notifier,
+            soundPlayer: sound,
+            settingsStore: settings
+        )
+
+        controller.tick(now: Date(timeIntervalSince1970: 10))
+        controller.tick(now: Date(timeIntervalSince1970: 20))
+        controller.tick(now: Date(timeIntervalSince1970: 30))
+
+        XCTAssertEqual(notifier.sent.map(\.sessionID), ["72:1:/dev/ttys022"])
+        XCTAssertEqual(notifier.clearedSessionIDs, ["72:1:/dev/ttys022"])
     }
 }

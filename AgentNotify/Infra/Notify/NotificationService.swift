@@ -2,6 +2,11 @@ import UserNotifications
 
 protocol Notifying {
     func notify(_ payload: NotificationPayload)
+    func clearNotifications(for sessionIDs: Set<String>)
+}
+
+extension Notifying {
+    func clearNotifications(for sessionIDs: Set<String>) {}
 }
 
 final class NotificationService: Notifying {
@@ -23,5 +28,15 @@ final class NotificationService: Notifying {
         )
 
         center.add(request)
+    }
+
+    func clearNotifications(for sessionIDs: Set<String>) {
+        let identifiers = Array(sessionIDs)
+        guard !identifiers.isEmpty else {
+            return
+        }
+
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 }

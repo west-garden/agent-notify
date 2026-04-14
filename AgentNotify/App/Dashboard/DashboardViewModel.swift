@@ -31,6 +31,7 @@ final class DashboardViewModel: ObservableObject {
     var onAlertCooldownChanged: ((TimeInterval) -> Void)?
     var onLaunchAtLoginToggle: (() -> Void)?
     var onTestMoo: (() -> Void)?
+    var onQuitRequested: (() -> Void)?
 
     func apply(
         status: MonitorStatus,
@@ -91,5 +92,9 @@ final class DashboardViewModel: ObservableObject {
 
     func testMoo() {
         onTestMoo?()
+    }
+
+    func quit() {
+        onQuitRequested?()
     }
 }

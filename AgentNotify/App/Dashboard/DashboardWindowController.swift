@@ -16,6 +16,7 @@ protocol DashboardPresenting: AnyObject {
     @MainActor var onAlertCooldownChanged: ((TimeInterval) -> Void)? { get set }
     @MainActor var onLaunchAtLoginToggle: (() -> Void)? { get set }
     @MainActor var onTestMoo: (() -> Void)? { get set }
+    @MainActor var onQuitRequested: (() -> Void)? { get set }
 }
 
 @MainActor
@@ -59,6 +60,11 @@ final class DashboardWindowController: NSObject, DashboardPresenting {
     var onTestMoo: (() -> Void)? {
         get { viewModel.onTestMoo }
         set { viewModel.onTestMoo = newValue }
+    }
+
+    var onQuitRequested: (() -> Void)? {
+        get { viewModel.onQuitRequested }
+        set { viewModel.onQuitRequested = newValue }
     }
 
     func show() {

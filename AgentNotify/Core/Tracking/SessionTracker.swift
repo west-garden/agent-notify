@@ -34,6 +34,7 @@ final class SessionTracker {
                 agent: explicitAgent,
                 state: .unknown,
                 lastFingerprint: stored.lastFingerprint,
+                lastStabilityFingerprint: stored.lastStabilityFingerprint,
                 lastChangeAt: now,
                 hasNotifiedForCurrentWait: false,
                 windowID: snapshot.windowID,
@@ -46,6 +47,7 @@ final class SessionTracker {
                 agent: effectiveAgent,
                 state: .unknown,
                 lastFingerprint: "",
+                lastStabilityFingerprint: "",
                 lastChangeAt: now,
                 hasNotifiedForCurrentWait: false,
                 windowID: snapshot.windowID,
@@ -61,6 +63,7 @@ final class SessionTracker {
             agent: explicitAgent,
             state: decision.state,
             fingerprint: decision.fingerprint,
+            stabilityFingerprint: decision.stabilityFingerprint,
             now: now,
             markNotified: notified
         )
@@ -88,6 +91,7 @@ final class SessionTracker {
                 agent: session.agent,
                 state: session.state,
                 lastFingerprint: session.lastFingerprint,
+                lastStabilityFingerprint: session.lastStabilityFingerprint,
                 lastChangeAt: session.lastChangeAt,
                 hasNotifiedForCurrentWait: false,
                 windowID: session.windowID,

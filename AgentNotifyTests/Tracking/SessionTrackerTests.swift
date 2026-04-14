@@ -206,6 +206,94 @@ final class SessionTrackerTests: XCTestCase {
         XCTAssertEqual(remaining.first?.tty, "/dev/ttys021")
         XCTAssertEqual(remaining.first?.locationLabel, String(localized: "Window \(71) / Tab \(3)"))
     }
+
+    func test_claudeWaitingStillNotifiesWhenOnlyFooterTimingChanges() {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let first = snapshot(
+            windowID: 72,
+            tabIndex: 1,
+            tty: "/dev/ttys022",
+            processes: ["login", "-zsh", "claude"],
+            visibleText: """
+            ✻ Sautéed for 33s
+
+            ────────────────────────────────────────────────────────────────────────
+            ❯ 我觉得只需要看后面三项，其他没有必要看
+            ────────────────────────────────────────────────────────────────────────
+              [Opus 4.6] │ terrain git:(main*) │ temporal-noodling-clover │ ⏱️   29m
+              Context ███░░░░░░░ 34%
+              2 CLAUDE.md
+              ✓ Bash ×11 | ✓ Read ×8 | ✓ Edit ×1
+              ⏵⏵ bypass permissions on (shift+tab to cycle)
+            """
+        )
+        let second = snapshot(
+            windowID: 72,
+            tabIndex: 1,
+            tty: "/dev/ttys022",
+            processes: ["login", "-zsh", "claude"],
+            visibleText: """
+            ✻ Sautéed for 34s
+
+            ────────────────────────────────────────────────────────────────────────
+            ❯ 我觉得只需要看后面三项，其他没有必要看
+            ────────────────────────────────────────────────────────────────────────
+              [Opus 4.6] │ terrain git:(main*) │ temporal-noodling-clover │ ⏱️   30m
+              Context ████░░░░░░ 36%
+              2 CLAUDE.md
+              ✓ Bash ×11 | ✓ Read ×8 | ✓ Edit ×1
+              ⏵⏵ bypass permissions on (shift+tab to cycle)
+            """
+        )
+
+        XCTAssertNil(tracker.process(snapshot: first, now: Date(timeIntervalSince1970: 10))?.notification)
+
+        let event = tracker.process(snapshot: second, now: Date(timeIntervalSince1970: 20))
+
+        XCTAssertEqual(event?.session.state, .needsInput)
+        XCTAssertEqual(event?.notification?.agent, .claude)
+    }
+
+    func test_codexWaitingStillNotifiesWhenOnlyFooterMetadataChanges() {
+        let tracker = SessionTracker(detector: NeedsInputDetector(quietPeriod: 3))
+        let first = snapshot(
+            windowID: 73,
+            tabIndex: 2,
+            tty: "/dev/ttys023",
+            processes: ["login", "-zsh", "node", "codex"],
+            visibleText: """
+            › Implement {feature}
+
+              gpt-5.4 xhigh · ~/code/west-garden/agent-notify
+              Context left until auto-compact: 54%
+              2 CLAUDE.md
+              ✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×2
+              ⏵⏵ bypass permissions on (shift+tab to cycle)
+            """
+        )
+        let second = snapshot(
+            windowID: 73,
+            tabIndex: 2,
+            tty: "/dev/ttys023",
+            processes: ["login", "-zsh", "node", "codex"],
+            visibleText: """
+            › Implement {feature}
+
+              gpt-5.4 xhigh · ~/code/west-garden/agent-notify
+              Context left until auto-compact: 53%
+              2 CLAUDE.md
+              ✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×2
+              ⏵⏵ bypass permissions on (shift+tab to cycle)
+            """
+        )
+
+        XCTAssertNil(tracker.process(snapshot: first, now: Date(timeIntervalSince1970: 10))?.notification)
+
+        let event = tracker.process(snapshot: second, now: Date(timeIntervalSince1970: 20))
+
+        XCTAssertEqual(event?.session.state, .needsInput)
+        XCTAssertEqual(event?.notification?.agent, .codex)
+    }
 }
 
 private extension SessionTrackerTests {

@@ -27,4 +27,55 @@ final class ClaudeMatcherTests: XCTestCase {
 
         XCTAssertTrue(matcher.matchesActiveWork("Thinking..."))
     }
+
+    func test_currentSpinnerLineCountsAsActiveWorkEvenWhenPromptIsVisible() {
+        let matcher = ClaudeMatcher()
+
+        XCTAssertTrue(matcher.matchesActiveWork("""
+        ✳ Flibbertigibbeting…
+
+        ────────────────────────────────────────────────────────────────────────
+        ❯
+        ────────────────────────────────────────────────────────────────────────
+          [Opus 4.6] │ terrain git:(main)
+        """))
+    }
+
+    func test_newSpinnerGlyphCountsAsActiveWorkEvenWhenPromptIsVisible() {
+        let matcher = ClaudeMatcher()
+
+        XCTAssertTrue(matcher.matchesActiveWork("""
+        ✢ Quantumizing…
+
+        ────────────────────────────────────────────────────────────────────────
+        ❯
+        ────────────────────────────────────────────────────────────────────────
+          [Opus 4.6] │ terrain git:(main)
+        """))
+    }
+
+    func test_longTaskListStillPreservesAnimatedStatusLine() {
+        let matcher = ClaudeMatcher()
+
+        XCTAssertTrue(matcher.matchesActiveWork("""
+        ✻ Transitioning to implementation... (1h 16m 17s · ↓ 14.7k tokens · thought for 16s)
+        ╰ Transition to implementation
+          ✓ Explore project contents
+          ✓ Ask clarifying questions
+          ✓ Propose 2-3 approaches
+          ✓ Present design
+          ✓ Write design doc
+          ✓ Spec self-review
+          ✓ User reviews written spec
+          +3 completed
+
+        ❯
+
+          [Opus 4.6] │ ai-drama-script git:(main)
+          Context 54%
+          2 CLAUDE.md
+          ✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×2
+          ⏵⏵ bypass permissions on (shift+tab to cycle)
+        """))
+    }
 }

@@ -11,7 +11,12 @@ struct CodexMatcher: IdlePatternMatcher {
 
     func matchesActiveWork(_ normalizedText: String) -> Bool {
         let text = relevantTail(from: normalizedText).lowercased()
-        return text.contains("streaming") || text.contains("thinking") || text.contains("tool uses")
+        let fullText = normalizedText.lowercased()
+        return text.contains("streaming")
+            || text.contains("thinking")
+            || text.contains("tool uses")
+            || fullText.contains("esc to interrupt")
+            || fullText.contains("working (")
     }
 
     private func relevantTail(from normalizedText: String) -> String {

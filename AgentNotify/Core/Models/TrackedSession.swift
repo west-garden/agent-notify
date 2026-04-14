@@ -5,6 +5,7 @@ struct TrackedSession {
     let agent: AgentKind
     let state: SessionState
     let lastFingerprint: String
+    let lastStabilityFingerprint: String
     let lastChangeAt: Date
     let hasNotifiedForCurrentWait: Bool
     let windowID: Int
@@ -16,16 +17,21 @@ struct TrackedSession {
         agent: AgentKind,
         state: SessionState,
         lastFingerprint: String,
+        lastStabilityFingerprint: String? = nil,
         lastChangeAt: Date,
         hasNotifiedForCurrentWait: Bool,
         windowID: Int,
         tabIndex: Int,
         tty: String
     ) {
+        let fingerprinting = StatusFingerprinting()
+
         self.id = id
         self.agent = agent
         self.state = state
         self.lastFingerprint = lastFingerprint
+        self.lastStabilityFingerprint = lastStabilityFingerprint
+            ?? fingerprinting.stabilityFingerprint(from: fingerprinting.statusRegion(from: lastFingerprint))
         self.lastChangeAt = lastChangeAt
         self.hasNotifiedForCurrentWait = hasNotifiedForCurrentWait
         self.windowID = windowID
@@ -42,6 +48,7 @@ struct TrackedSession {
         agent: AgentKind? = nil,
         state: SessionState,
         fingerprint: String,
+        stabilityFingerprint: String,
         now: Date,
         markNotified: Bool
     ) -> TrackedSession {
@@ -50,7 +57,8 @@ struct TrackedSession {
             agent: agent ?? self.agent,
             state: state,
             lastFingerprint: fingerprint,
-            lastChangeAt: lastFingerprint == fingerprint ? lastChangeAt : now,
+            lastStabilityFingerprint: stabilityFingerprint,
+            lastChangeAt: lastStabilityFingerprint == stabilityFingerprint ? lastChangeAt : now,
             hasNotifiedForCurrentWait: markNotified,
             windowID: snapshot.windowID,
             tabIndex: snapshot.tabIndex,

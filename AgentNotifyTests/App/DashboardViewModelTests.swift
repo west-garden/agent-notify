@@ -116,16 +116,19 @@ final class DashboardViewModelTests: XCTestCase {
         var cooldownValue: TimeInterval?
         var launchToggleCount = 0
         var testMooCount = 0
+        var quitCount = 0
 
         viewModel.onMutedChanged = { mutedValue = $0 }
         viewModel.onAlertCooldownChanged = { cooldownValue = $0 }
         viewModel.onLaunchAtLoginToggle = { launchToggleCount += 1 }
         viewModel.onTestMoo = { testMooCount += 1 }
+        viewModel.onQuitRequested = { quitCount += 1 }
 
         viewModel.setMuted(true)
         viewModel.setAlertCooldown(120)
         viewModel.toggleLaunchAtLogin()
         viewModel.testMoo()
+        viewModel.quit()
 
         XCTAssertEqual(mutedValue, true)
         XCTAssertTrue(viewModel.isMuted)
@@ -133,5 +136,6 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.alertCooldownSeconds, 120)
         XCTAssertEqual(launchToggleCount, 1)
         XCTAssertEqual(testMooCount, 1)
+        XCTAssertEqual(quitCount, 1)
     }
 }

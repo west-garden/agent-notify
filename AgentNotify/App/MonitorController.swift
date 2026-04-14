@@ -107,22 +107,29 @@ final class MonitorController {
         timer?.invalidate()
         timer = nil
 
-        let clearedSessionIDs = updateState { state in
+        let notificationChanges = updateState { state in
+            let trackedSessionIDs = Set(state.tabs.map(\.id))
             state.isRunning = false
             state.controlGeneration &+= 1
-            return clearPendingNotifications(in: &state, resetCooldown: true)
+            let queuedSessionIDs = clearPendingNotifications(in: &state, resetCooldown: true)
+            return (
+                notificationSessionIDs: queuedSessionIDs.union(trackedSessionIDs),
+                rearmSessionIDs: queuedSessionIDs
+            )
         }
         publishStatus()
 
-        guard !clearedSessionIDs.isEmpty else {
+        notifier.clearNotifications(for: notificationChanges.notificationSessionIDs)
+
+        guard !notificationChanges.rearmSessionIDs.isEmpty else {
             return
         }
 
-        rearmQueuedSessions(clearedSessionIDs)
+        rearmQueuedSessions(notificationChanges.rearmSessionIDs)
     }
 
     func setMuted(_ muted: Bool) {
-        let clearedSessionIDs = updateState { state -> Set<String>? in
+        let notificationChanges = updateState { state -> (notificationSessionIDs: Set<String>, rearmSessionIDs: Set<String>)? in
             guard state.isMuted != muted else {
                 return nil
             }
@@ -131,13 +138,18 @@ final class MonitorController {
             state.controlGeneration &+= 1
 
             if muted {
-                return clearPendingNotifications(in: &state, resetCooldown: true)
+                let trackedSessionIDs = Set(state.tabs.map(\.id))
+                let queuedSessionIDs = clearPendingNotifications(in: &state, resetCooldown: true)
+                return (
+                    notificationSessionIDs: queuedSessionIDs.union(trackedSessionIDs),
+                    rearmSessionIDs: queuedSessionIDs
+                )
             }
 
-            return []
+            return (notificationSessionIDs: [], rearmSessionIDs: [])
         }
 
-        guard let clearedSessionIDs else {
+        guard let notificationChanges else {
             return
         }
 
@@ -145,7 +157,8 @@ final class MonitorController {
         publishStatus()
 
         if muted {
-            rearmQueuedSessions(clearedSessionIDs)
+            notifier.clearNotifications(for: notificationChanges.notificationSessionIDs)
+            rearmQueuedSessions(notificationChanges.rearmSessionIDs)
         }
     }
 
@@ -202,6 +215,10 @@ final class MonitorController {
 
             let activeSessions = tracker.activeSessions()
             let activeSessionsByID = Dictionary(uniqueKeysWithValues: activeSessions.map { ($0.id, $0) })
+            clearResolvedNotifications(
+                activeSessionsByID: activeSessionsByID,
+                controlGeneration: controlGeneration
+            )
 
             reconcileNotifications(
                 now: now,
@@ -340,6 +357,34 @@ final class MonitorController {
             state.queuedNotificationOrder = prunedOrder
             state.queuedNotifications = prunedNotifications
         }
+    }
+
+    private func clearResolvedNotifications(
+        activeSessionsByID: [String: TrackedSession],
+        controlGeneration: UInt64
+    ) {
+        let sessionIDs = withState { state -> Set<String> in
+            guard state.controlGeneration == controlGeneration else {
+                return []
+            }
+
+            let currentSessionIDs = Set(activeSessionsByID.keys)
+            let waitingSessionIDs = Set(
+                activeSessionsByID.values
+                    .filter { $0.state == .needsInput }
+                    .map(\.id)
+            )
+            let previouslyWaitingSessionIDs = Set(
+                state.tabs
+                    .filter(\.isWaiting)
+                    .map(\.id)
+            )
+            let missingSessionIDs = Set(state.tabs.map(\.id)).subtracting(currentSessionIDs)
+            let resolvedSessionIDs = previouslyWaitingSessionIDs.subtracting(waitingSessionIDs)
+            return resolvedSessionIDs.union(missingSessionIDs)
+        }
+
+        notifier.clearNotifications(for: sessionIDs)
     }
 
     private func queueNotification(_ payload: NotificationPayload, controlGeneration: UInt64) {

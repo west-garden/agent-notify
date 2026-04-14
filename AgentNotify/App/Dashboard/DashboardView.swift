@@ -167,6 +167,12 @@ struct DashboardView: View {
             }
             .buttonStyle(.borderedProminent)
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button("Quit AgentNotify") {
+                viewModel.quit()
+            }
+            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

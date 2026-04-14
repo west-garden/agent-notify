@@ -9,6 +9,7 @@ final class MenuBarController: NSObject {
     private let settingsStore: MonitorSettingsStoring
     private let dashboardPresenter: DashboardPresenting
     private let terminalNavigator: TerminalNavigating
+    private let terminateApplication: () -> Void
 
     private var latestStatus: MonitorStatus
 
@@ -18,7 +19,8 @@ final class MenuBarController: NSObject {
         launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController(),
         settingsStore: MonitorSettingsStoring,
         dashboardPresenter: DashboardPresenting,
-        terminalNavigator: TerminalNavigating = TerminalNavigator()
+        terminalNavigator: TerminalNavigating = TerminalNavigator(),
+        terminateApplication: (() -> Void)? = nil
     ) {
         self.monitorController = monitorController
         self.permissionCoordinator = permissionCoordinator
@@ -26,6 +28,7 @@ final class MenuBarController: NSObject {
         self.settingsStore = settingsStore
         self.dashboardPresenter = dashboardPresenter
         self.terminalNavigator = terminalNavigator
+        self.terminateApplication = terminateApplication ?? { NSApp.terminate(nil) }
         self.latestStatus = MonitorStatus(
             isRunning: monitorController.isRunning,
             isMuted: monitorController.isMuted,
@@ -61,6 +64,9 @@ final class MenuBarController: NSObject {
         }
         self.dashboardPresenter.onTestMoo = { [weak self] in
             self?.monitorController.playTestSound()
+        }
+        self.dashboardPresenter.onQuitRequested = { [weak self] in
+            self?.terminateApplication()
         }
     }
 
@@ -112,20 +118,34 @@ final class MenuBarController: NSObject {
     private func makeContextMenu() -> NSMenu {
         let menu = NSMenu()
 
-        menu.addItem(
+        let monitoringItem = menu.addItem(
             withTitle: monitorController.isRunning ? String(localized: "Stop Monitoring") : String(localized: "Start Monitoring"),
             action: #selector(toggleMonitoring),
             keyEquivalent: ""
         )
-        menu.addItem(
+        monitoringItem.target = self
+
+        let muteItem = menu.addItem(
             withTitle: monitorController.isMuted ? String(localized: "Unmute Alerts") : String(localized: "Mute Alerts"),
             action: #selector(toggleMute),
             keyEquivalent: ""
         )
+        muteItem.target = self
+
         menu.addItem(.separator())
-        menu.addItem(withTitle: String(localized: "Quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.items.forEach { $0.target = self }
+
+        let quitItem = menu.addItem(
+            withTitle: String(localized: "Quit"),
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.target = nil
+
         return menu
+    }
+
+    func makeContextMenuForTesting() -> NSMenu {
+        makeContextMenu()
     }
 
     private func showContextMenu() {

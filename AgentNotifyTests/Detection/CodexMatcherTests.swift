@@ -28,6 +28,18 @@ final class CodexMatcherTests: XCTestCase {
         XCTAssertTrue(matcher.matchesActiveWork("Thinking..."))
     }
 
+    func test_currentWorkingFooterCountsAsActiveWorkEvenWhenPromptIsVisible() {
+        let matcher = CodexMatcher()
+
+        XCTAssertTrue(matcher.matchesActiveWork("""
+        • Working (1m 56s • esc to interrupt) · 1 background terminal running · /ps to view · /stop to close
+
+        › Implement {feature}
+
+          gpt-5.4 xhigh · ~/code/west-garden/agent-notify
+        """))
+    }
+
     func test_legacySelectionPromptStillMatchesInputReady() {
         let matcher = CodexMatcher()
 
